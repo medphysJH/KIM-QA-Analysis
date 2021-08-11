@@ -1,5 +1,5 @@
 % Treatment interruption tests
-function treatInterruptTest(type, folder_KIM_root, coord_file, paramfile)
+function TreatmentInt(type, folder_KIM_root, coord_file, paramfile)
 
 %close all
 
@@ -18,19 +18,18 @@ latency = 0.350;
 %type = 'Breath'; 
 %folderHexa = 'C:\Users\dngu2802\Documents\KIM_QA\KIM QA\QA Trajectories\Validated29Oct2014\';
 %fileHexa =  strcat('C:\LARK_QA_test\treat_int_new\Sitched_traces\LiverTraj_LargeSIandAPWithBreathHold_robot_20min.txt');
-fileHexa = KIM.KIMRobotFile;
+fileMotion = KIM.KIMRobotFile;
 
 %folderKIM =  strcat('C:\LARK_QA_test\treat_int_new\Large_SI_AP_Breathhold');
 folderKIM = KIM.KIMTrajFolder;
 
-coordFile = KIM.KIMcoordFile
+coordFile = KIM.KIMcoordFile;
 %coordFile = strcat('C:\LARK_QA_test\treat_int_new\Input_files\coord.txt');
 %paramfile = strcat('C:\LARK_QA_test\treat_int_new\Input_files\param.txt');
-paramfile = KIM.KIMparamFile
+paramfile = KIM.KIMparamFile;
 
 [~, deepestFolder] = fileparts(folderKIM);
 folderKIM = [folderKIM '\'];
-dirHexa = fileHexa; %[folderHexa fileHexa];
 %covFile = 'covOutput_OL.txt';
 
 % Create the file covOutput_OL.txt if it does not exist
@@ -45,14 +44,9 @@ fid = fopen(coordFile);
 coordData = fscanf(fid, '%f %f %f');
 fclose(fid);
 
-% First row x, second row y, third row z
-fid = fopen(coordFile);
-coordData = fscanf(fid, '%f %f %f');
-fclose(fid);
-
-Avg_marker_x = (coordData(1) + coordData(4) + coordData(7))/3
-Avg_marker_y = (coordData(2) + coordData(5) + coordData(8))/3
-Avg_marker_z = (coordData(3) + coordData(6) + coordData(9))/3
+Avg_marker_x = (coordData(1) + coordData(4) + coordData(7))/3;
+Avg_marker_y = (coordData(2) + coordData(5) + coordData(8))/3;
+Avg_marker_z = (coordData(3) + coordData(6) + coordData(9))/3;
 
 Avg_marker_x_iso = 10*(Avg_marker_x - coordData(10));
 Avg_marker_y_iso = 10*(Avg_marker_y - coordData(11));
@@ -128,7 +122,7 @@ vrt = couchPositions{1};
 lng = couchPositions{2};
 lat = couchPositions{3};
 
-for n = 1:length(lat);
+for n = 1:length(lat)
     if lat(n) > 950
     lat(n) = lat(n) - 1000;    
     end   
@@ -293,45 +287,58 @@ dataKIM.zCentOff = dataKIM.zCent - dataKIM.zCent(1);
 dataKIM.rCentOff = sqrt(dataKIM.xCentOff.^2 + dataKIM.yCentOff.^2 + dataKIM.zCentOff.^2);
 
 
-% Obtain Hexa data
-fid=fopen(dirHexa);
-rawDataHexa = textscan(fid, '%f %f %f %f %f %f %f');
+% Obtain Motion data
+fid=fopen(fileMotion);
+FirstLine = fgetl(fid);
+if ~isnumeric(FirstLine) && FirstLine(1)=='t'
+    % Hexamotion trajectory files start with 'trajectory'
+    isrobot = 0;
+    rawMotionData = textscan(fid, '%f %f %f');
+elseif FirstLine(1)=='0'
+    % Robot trajectory files *should* start with '0 0 0 0 0 0 0'
+    isrobot = 1;
+    frewind(fid);
+    rawMotionData = textscan(fid, '%f %f %f %f %f %f %f');
+else
+    print('Unrecognised motion input file type')
+    msgbox('Unrecognised motion input file type','Motion File Type');
+    return
+end
 fclose(fid);
-%disp(rawDataHexa{1}));
-%disp(length(rawDataHexa{3}));
-%disp(length(rawDataHexa{4}));
 
+% H. Obtain motion trajectory data
+% 3D trajectories
+offset = 0; %Time offset
+if isrobot
+    indexAtStart = shiftMotionTrace/0.2 + 1;
+else
+    indexAtStart = shiftMotionTrace/0.02 + 1;
+end
+if isrobot
+    dataMotion.x = (1).*rawMotionData{2}(indexAtStart:end);
+    dataMotion.y = rawMotionData{3}(indexAtStart:end);
+    dataMotion.z = (1).*rawMotionData{4}(indexAtStart:end);
+    dataMotion.r = sqrt(dataMotion.x.^2 + dataMotion.y.^2 + dataMotion.z.^2);
 
-% H1. Obtain Hexamotion trajectory data
-% 3D trajectories for Hexa data
-dataHexa.x = (1).*rawDataHexa{2};
-dataHexa.y = rawDataHexa{3};
-dataHexa.z = (1).*rawDataHexa{4};
-dataHexa.r = sqrt(dataHexa.x.^2 + dataHexa.y.^2 + dataHexa.z.^2);
+    dataMotion.xOff = dataMotion.x - dataMotion.x(indexAtStart);
+    dataMotion.yOff = dataMotion.y - dataMotion.y(indexAtStart);
+    dataMotion.zOff = dataMotion.z - dataMotion.z(indexAtStart);
+    dataMotion.rOff = sqrt(dataMotion.xOff.^2 + dataMotion.yOff.^2 + dataMotion.zOff.^2);
 
-dataHexa.xOff = dataHexa.x - dataHexa.x(1);
-dataHexa.yOff = dataHexa.y - dataHexa.y(1);
-dataHexa.zOff = dataHexa.z - dataHexa.z(1);
-dataHexa.rOff = sqrt(dataHexa.xOff.^2 + dataHexa.yOff.^2 + dataHexa.zOff.^2);
+    dataMotion.timestamps = rawMotionData{1} + offset;
+else
+    dataMotion.x = -1.*rawMotionData{1}(indexAtStart:end);
+    dataMotion.y = rawMotionData{2}(indexAtStart:end);
+    dataMotion.z = rawMotionData{3}(indexAtStart:end);
+    dataMotion.r = sqrt(dataMotion.x.^2 + dataMotion.y.^2 + dataMotion.z.^2);
+    
+    dataMotion.xOff = dataMotion.x - dataMotion.x(indexAtStart);
+    dataMotion.yOff = dataMotion.y - dataMotion.y(indexAtStart);
+    dataMotion.zOff = dataMotion.z - dataMotion.z(indexAtStart);
+    dataMotion.rOff = sqrt(dataMotion.xOff.^2 + dataMotion.yOff.^2 + dataMotion.zOff.^2);
 
-%dataHexa.timestamps = 0:0.02:(length(dataHexa.x)-1)*0.02;
-dataHexa.timestamps = rawDataHexa{1};
-% If Hexa was shifted forward, start the Hexa timestamp at the time of the
-% shift
-indexAtStart = shiftHexa/0.02 + 1;
-
-dataHexa.x = dataHexa.x(indexAtStart:end);
-dataHexa.y = dataHexa.y(indexAtStart:end);
-dataHexa.z = dataHexa.z(indexAtStart:end);
-dataHexa.r = sqrt(dataHexa.x.^2 + dataHexa.y.^2 + dataHexa.z.^2);
-
-dataHexa.xOff = dataHexa.xOff(indexAtStart:end);
-dataHexa.yOff = dataHexa.yOff(indexAtStart:end);
-dataHexa.zOff = dataHexa.zOff(indexAtStart:end);
-dataHexa.rOff = sqrt(dataHexa.xOff.^2 + dataHexa.yOff.^2 + dataHexa.zOff.^2);
-
-%dataHexa.timestamps = 0:0.02:(length(dataHexa.x)-1)*0.02;
-
+    dataMotion.timestamps = 0:0.02:(length(dataMotion.x)-1)*0.02;
+end
 
 % Step 1
 % Plot KIM SI with couch shifts
@@ -362,7 +369,7 @@ set(gca,'fontsize',16)
 
 % Step 3
 % Find closest match between Hexa and KIM trajectory using the SI component
-shift = findClosestSI(dataHexa,dataKIM);
+shift = findClosestSI(dataMotion,dataKIM);
 
 % Apply the time shift to the KIM trajectory
 totalShift = shift + latency;
@@ -374,8 +381,8 @@ dataKIM.timestamps = dataKIM.timestamps + totalShift;
 % Step 4
 % Plot KIM SI after time shift
 figure(4)
-interpHexa.y = interp1(dataHexa.timestamps, dataHexa.y, dataKIM.timestamps);
-plot(dataHexa.timestamps, dataHexa.y, 'k-', dataKIM.timestamps, dataKIM.yCent, 'g.')
+interpHexa.y = interp1(dataMotion.timestamps, dataMotion.y, dataKIM.timestamps);
+plot(dataMotion.timestamps, dataMotion.y, 'k-', dataKIM.timestamps, dataKIM.yCent, 'g.')
 %plot(dataKIM.timestamps, dataKIM.yCent, 'g.')
 
 xlabel('Index', 'fontsize',16)
@@ -392,7 +399,7 @@ for n = 1:length(shiftIndex)
     dataKIM.zCent(shiftIndex(n):end) = dataKIM.zCent(shiftIndex(n):end) + shiftsAP(n);
     
     
-    hexaShiftIndex_temp = find(abs((dataHexa.timestamps - dataKIM.timestamps(shiftIndex(n)))) < paramData(4));
+    hexaShiftIndex_temp = find(abs((dataMotion.timestamps - dataKIM.timestamps(shiftIndex(n)))) < paramData(4));
 %     
     if(~isempty(hexaShiftIndex_temp))
         hexaShiftIndex(n) = hexaShiftIndex_temp(1); 
@@ -400,9 +407,9 @@ for n = 1:length(shiftIndex)
 %         break; 
     end
 %     
-    dataHexa.x(hexaShiftIndex(n):end) = dataHexa.x(hexaShiftIndex(n):end) + shiftsLR(n);
-    dataHexa.y(hexaShiftIndex(n):end) = dataHexa.y(hexaShiftIndex(n):end) + shiftsSI(n);
-    dataHexa.z(hexaShiftIndex(n):end) = dataHexa.z(hexaShiftIndex(n):end) + shiftsAP(n);
+    dataMotion.x(hexaShiftIndex(n):end) = dataMotion.x(hexaShiftIndex(n):end) + shiftsLR(n);
+    dataMotion.y(hexaShiftIndex(n):end) = dataMotion.y(hexaShiftIndex(n):end) + shiftsSI(n);
+    dataMotion.z(hexaShiftIndex(n):end) = dataMotion.z(hexaShiftIndex(n):end) + shiftsAP(n);
 end
 
 dataKIM.timeTreat = dataKIM.timestamps(indexOfTreatStart:end);
@@ -414,11 +421,11 @@ dataKIM.zCentTreat = dataKIM.zCent(indexOfTreatStart:end);
 
 
 % Compute stats. Stats for couch unshifted KIM wrt unshifted Hexa
-computeStats(dataHexa,dataKIM, deepestFolder, folderKIM, shift);
+computeStats(dataMotion,dataKIM, deepestFolder, folderKIM, shift);
 
 
 % Plot
-plotKIMAndHexa(dataKIM,dataHexa,deepestFolder)
+plotKIMAndHexa(dataKIM,dataMotion,deepestFolder)
 %findTimeGaps(dataKIM, dataHexa)
 
 figure(1)

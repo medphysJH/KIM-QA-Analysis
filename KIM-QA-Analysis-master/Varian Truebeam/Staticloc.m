@@ -1,5 +1,5 @@
 % Static localization tests
-function staticTest_LARK(value_LR, value_SI, value_AP, ParentPath, coord)
+function Staticloc(value_LR, value_SI, value_AP, ParentPath, coord)
 
 clc
 close all
@@ -24,9 +24,9 @@ fid = fopen(coord);
 coordData = fscanf(fid, '%f %f %f');
 fclose(fid);
 
-Avg_marker_x = (coordData(1) + coordData(4) + coordData(7))/3
-Avg_marker_y = (coordData(2) + coordData(5) + coordData(8))/3
-Avg_marker_z = (coordData(3) + coordData(6) + coordData(9))/3
+Avg_marker_x = (coordData(1) + coordData(4) + coordData(7))/3;
+Avg_marker_y = (coordData(2) + coordData(5) + coordData(8))/3;
+Avg_marker_z = (coordData(3) + coordData(6) + coordData(9))/3;
 
 Avg_marker_x_iso = 10*(Avg_marker_x - coordData(10));
 Avg_marker_y_iso = 10*(Avg_marker_y - coordData(11));
@@ -46,12 +46,9 @@ Avg_marker_z = -Avg_marker_y_iso;
 data_no_displacement = readKIMData([ParentPath], frameAverage, Avg_marker_x, Avg_marker_y, Avg_marker_z);
 
 % Compute metrics
-[data1] = computeMetrics('LR', data_no_displacement, value_LR, value_SI, value_AP);
+[data] = computeMetrics('LR', data_no_displacement, value_LR, value_SI, value_AP);
 
-
-data = [data1];
-
-metricsFile = strcat([ParentPath],'\','Metrics.txt')
+metricsFile = strcat([ParentPath],'\','Metrics.txt');
 
 fid = fopen(metricsFile, 'w');
 
@@ -65,7 +62,7 @@ for i = 1:1
     fprintf(fid,'\n');
 end 
 
-fclose('all')
+fclose('all');
 
 
 end
