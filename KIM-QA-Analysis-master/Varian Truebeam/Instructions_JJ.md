@@ -23,11 +23,14 @@ MCR has been used for the purpose when the computers at different sites do not h
       * They can typically be found in the 'KIM-kV' folder
    * b) 'Select Robot Traj file' - The appropriate motion trace file (can be for the Robot or Hexamotion).  
    * c) 'Select coord file' - The patient coordinate file.  
-      * Contains the [x y z] details of the marker positions in the patient (code assumes 3 markers per patient)
-      * One line per marker, all positions in mm, the code requires this file to only contain numbers.  
-   * d) 'Select param file' - Contains the parameters **a, b, c**; all three are times (s)  
+      * Contains the [x y z] details of the marker positions in the patient (code assumes 3 markers per patient) followed by the [x y z] isocentre position in the patient
+      * One line per marker, all positions in mm  
+      * Final line is the isocentre in the same format as the markers  
+      * The code requires this file to only contain numbers.    
+   * d) 'Select param file' - Contains the parameters **a b c d**; all four are times (s)  
       * The program shifts the timing of the KIM trace to match the timing of the robot trace between the times a and c with a step size of b until the SI positions match.  
       * Create a .txt file containing the parameters **a b c**, for example **-30 0.01 30**. In this example, the code will shift the trace from -30 sec to 30 sec in steps of 0.01 sec. 
+      * The fouth parameter, **d** should be 0.2.  
    * e) Click on 'analyse'.
  
 ## Output

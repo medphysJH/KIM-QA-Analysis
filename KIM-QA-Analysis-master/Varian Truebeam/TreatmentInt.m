@@ -10,8 +10,12 @@ global deepestFolder;
 global plotOffline;
 global KIM;
 global paramData;
+
+noti_fid = msgbox('Processing, please don''t close');
+
 % Inputs
-shiftHexa = 0;
+shiftMotionTrace = 0; % time in seconds by which Hexamotion trajectory was shifted
+% shiftHexa = 0;
 latency = 0.350;
 
 
@@ -60,13 +64,15 @@ Avg_marker_z = -Avg_marker_y_iso;
 % Obtain parameters 
 fid = fopen(paramfile);
 paramData = fscanf(fid, '%f %f %f %f');
-disp(paramData(1));
-disp(paramData(2));
-disp(paramData(3));
+fclose(fid);
+% disp(paramData(1));
+% disp(paramData(2));
+% disp(paramData(3));
 %paramData(1) = -400;
 %paramData(2) = 0.01;
 %paramData(3) = 20;
 %paramData(4) = 0.1;
+
 % List the number of files tagged with OL
 listOfOLTrajFiles = ls([folderKIM '\*GA*OL*.txt']);
 noOfOLTrajFiles = size(listOfOLTrajFiles,1);
@@ -294,15 +300,15 @@ if ~isnumeric(FirstLine) && FirstLine(1)=='t'
     % Hexamotion trajectory files start with 'trajectory'
     isrobot = 0;
     rawMotionData = textscan(fid, '%f %f %f');
-elseif FirstLine(1)=='0'
+else
     % Robot trajectory files *should* start with '0 0 0 0 0 0 0'
     isrobot = 1;
     frewind(fid);
     rawMotionData = textscan(fid, '%f %f %f %f %f %f %f');
-else
-    print('Unrecognised motion input file type')
-    msgbox('Unrecognised motion input file type','Motion File Type');
-    return
+% else
+%     print('Unrecognised motion input file type')
+%     msgbox('Unrecognised motion input file type','Motion File Type');
+%     return
 end
 fclose(fid);
 
@@ -381,7 +387,7 @@ dataKIM.timestamps = dataKIM.timestamps + totalShift;
 % Step 4
 % Plot KIM SI after time shift
 figure(4)
-interpHexa.y = interp1(dataMotion.timestamps, dataMotion.y, dataKIM.timestamps);
+% interpHexa.y = interp1(dataMotion.timestamps, dataMotion.y, dataKIM.timestamps);
 plot(dataMotion.timestamps, dataMotion.y, 'k-', dataKIM.timestamps, dataKIM.yCent, 'g.')
 %plot(dataKIM.timestamps, dataKIM.yCent, 'g.')
 
@@ -429,13 +435,18 @@ plotKIMAndHexa(dataKIM,dataMotion,deepestFolder)
 %findTimeGaps(dataKIM, dataHexa)
 
 figure(1)
-close
+% close
 figure(2)
-close
+% close
 figure(3)
-close
+% close
 figure(4)
-close
+% close
+
+if exist('noti_fid', 'var')
+  delete(noti_fid);
+  clear('noti_fid');
+end
 
 
 end
@@ -493,13 +504,17 @@ global noOfShifts
 global KIM
 %***************** This part writes output in a file ********************
 
-str1 = deepestFolder
-disp(deepestFolder)
-str2 = '_output.txt'
-file_output = strcat(folderKIM, str1, str2);
-currentfolder = pwd
+prefix = datestr(now, 'yymmdd-HHMM');
+[~, RobotFile, ~] = fileparts(KIM.KIMRobotFile);
+if length(RobotFile)<20
+    middle = RobotFile;
+else
+    middle = RobotFile(1:20);
+end
+append = '_TxInterrupt.txt';
+file_output = [prefix '_' middle append];
 
-fileID1 = fopen(file_output, 'w');
+fileID1 = fopen(fullfile(KIM.KIMOutputFolder, file_output), 'w');
 %************************************************************************
 
 indexOfTreatStart = dataKIM.indexOfTreatStart;
@@ -579,7 +594,7 @@ hold on
 if (~isempty(any_mean_fail))
     %set(KIM.handles.text4,'string','FAIL')
     %set(KIM.handles.text4,'BackgroundColor',[1 0 0])
-    line1 = ['QA result: KIM FAILED in Dyanmic test with trajectory %s', deepestFolder, ': mean difference of',]; 
+    line1 = ['QA result: KIM FAILED in Dyanmic test with trajectory ', deepestFolder, ': mean difference of',]; 
     fprintf(fileID1,'\n%s\n','QA result: KIM FAILED in Dynamic test');
     for i = 1: length(any_mean_fail)
         if i == length(any_mean_fail)
@@ -625,12 +640,12 @@ line1 = sprintf('%s \n', line1);
 line2 = sprintf('Mean\t\t\tStd\t\t\tPercentile(5,95)');
 line3 = sprintf('LR\tSI\tAP\tLR\tSI\tAP\tLR\t\tSI\t\tAP');
 
-disp(line1)
-disp(couchLine)
-disp(proTime1)
-disp(line2)
-disp(line3)
-disp(dataLine1)
+% disp(line1)
+% disp(couchLine)
+% disp(proTime1)
+% disp(line2)
+% disp(line3)
+% disp(dataLine1)
 
 % Write to the output file
 fprintf(fileID1, '\n\n\n%s\t %s\t %s\t %s\t %s\t %s\t %s\t %s\r', ' ', 'Mean (mm)', ' ', ' ', 'Std (mm)', ' ', ' ', 'Percentile (5, 95)');
@@ -638,7 +653,7 @@ fprintf(fileID1, '%s\t %s\t %s\t %s\t %s\t %s\t %s\t\t %s\t\t %s\t\t %s\r', ' ',
 fprintf(fileID1, '\t%1.2f\t %1.2f\t %1.2f\t %1.2f\t %1.2f\t %1.2f\t\t(%1.2f, %1.2f)\t(%1.2f, %1.2f)\t(%1.2f, %1.2f)\r', All_mean(1), All_mean(2), All_mean(3), All_std(1), All_std(2), All_std(3), pctLRTreat, pctSITreat, pctAPTreat);
 fprintf(fileID1, '\n\n\n%s\t %f\r', 'Shift is=', shift);
 fclose(fileID1);
-fclose('all')
+% fclose('all')
 
 end
 
