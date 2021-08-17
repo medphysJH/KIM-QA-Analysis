@@ -118,7 +118,7 @@ if ~isnumeric(FirstLine) && FirstLine(1)=='t'
     isrobot = 0;
     rawMotionData = textscan(fid, '%f %f %f');
 else
-    % Robot trajectory files *should* start with '0 0 0 0 0 0 0'
+    % Robot trajectory files *should* start with '0'
     isrobot = 1;
     frewind(fid);
     rawMotionData = textscan(fid, '%f %f %f %f %f %f %f');
@@ -366,7 +366,7 @@ end
 function shift = findClosestSI(dataHexa,dataKIM)
 global paramData
 global KIM
-shiftValues = -30:0.01:30;
+% shiftValues = -30:0.01:30;
 %rmseValues = ones(1,length(shiftValues));
 sigma = 2;
 if (dataKIM.timestamps(end) > dataHexa.timestamps(end))
