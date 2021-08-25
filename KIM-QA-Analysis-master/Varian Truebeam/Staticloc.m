@@ -1,4 +1,4 @@
-% Static localization tests
+ % Static localization tests
 function Staticloc(value_LR, value_SI, value_AP, ParentPath, coord)
 
 clc

@@ -15,6 +15,11 @@ function AnalyseKIMqa(KIM)
 
 % Find KIM trajectory log files in the specified folder
 listOfTrajFiles = ls([KIM.KIMTrajFolder '\*GA*.txt']);
+for n = size(listOfTrajFiles,1):-1:1
+   if contains(listOfTrajFiles(n,:), 'ol', 'IgnoreCase', true)
+       listOfTrajFiles(n,:) = [];
+   end
+end
 noOfTrajFiles = size(listOfTrajFiles,1);
 
 % Create output file name
@@ -38,11 +43,11 @@ fid = fopen(KIM.KIMcoordFile);
 coordData = fscanf(fid, '%f %f %f');
 fclose(fid);
 
-num_markers = (length(coordData)/3-1);
+nMar = (length(coordData)/3-1);
 
-marker_x = sum(coordData(1:3:end-3))/num_markers;
-marker_y = sum(coordData(2:3:end-3))/num_markers;
-marker_z = sum(coordData(3:3:end-3))/num_markers;
+marker_x = sum(coordData(1:3:end-3))/nMar;
+marker_y = sum(coordData(2:3:end-3))/nMar;
+marker_z = sum(coordData(3:3:end-3))/nMar;
 
 % Marker co-ordinates need to be transformed to machine space (Dicom to IEC)
 % In IEC space y is inverted and y and z are switched
@@ -60,7 +65,7 @@ fclose(fid);
 %% Read and extract motion data
 % accepts both Robot 6DOF file and Hexamotion 3 DOF files
 
-fid=fopen(KIM.KIMRobotFile);
+fid = fopen(KIM.KIMRobotFile);
 FirstLine = fgetl(fid);
 if ~isnumeric(FirstLine) && FirstLine(1)=='t'
     % Hexamotion trajectory files start with 'trajectory'
@@ -104,6 +109,23 @@ else
     dataMotion.timestamps = [0:0.02:(length(dataMotion.x)-1)*0.02]';
 end
 
+%% Read couchshift file
+if exist(fullfile(KIM.KIMTrajFolder, 'couchShifts.txt'),'file') == 2
+    fid=fopen(fullfile(KIM.KIMTrajFolder, 'couchShifts.txt'));
+    couch.Positions = textscan(fid, '%f,%f,%f\r', 'headerlines', 1);
+    fclose(fid);
+    
+    couch.vrt = couch.Positions{1};
+    couch.lng = couch.Positions{2};
+    couch.lat = couch.Positions{3};
+    couch.lat = couch.lat(couch.lat>950) - 1000;
+    
+    couch.NumShifts = length(couch.vrt);
+    couch.ShiftsAP = -diff(couch.vrt)*10;	% AP maps to couch -vert
+    couch.ShiftsSI = diff(couch.lng)*10;    % SI maps to couch long
+    couch.ShiftsLR = diff(couch.lat)*10;    % LR maps to couch lat
+end
+
 %% Read and extract KIM trajectory data
 opts = delimitedTextImportOptions('Delimiter',',');
 opts.VariableDescriptionsLine = 1; % first line contains varaiable descriptions
@@ -111,15 +133,69 @@ opts.DataLines = 2;  % data starts on the second line
 
 if noOfTrajFiles > 1
     for traj = 1:noOfTrajFiles
-        logfilename = fullfile(KIM.KIMTrajFolder, listOfTrajFiles(traj));
-        %     fopen(logfilename);
-        %     rawDataKIM = textscan(fid,    '%u,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%u,%u,%u,%u,%u,%u,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%s', 'headerLines', 1);
-        rawDataKIM{traj} = readmatrix(logfilename, opts);
-        %     fclose(fid);
+        logfilename = fullfile(KIM.KIMTrajFolder, listOfTrajFiles(traj,:));
+        rawDataKIM{traj} = readcell(logfilename, opts);
     end
+    ShiftIndex = cellfun('size',rawDataKIM,1);
+    ShiftIndex = cumsum(ShiftIndex);
+    
+    rawDataKIM = vertcat(rawDataKIM{:});
 else
     logfilename = fullfile(KIM.KIMTrajFolder, listOfTrajFiles);
-    rawDataKIM = readmatrix(logfilename, opts);
+    rawDataKIM = readcell(logfilename, opts);
 end
+
+dataKIM.timestamps = [rawDataKIM{:,2}]';
+dataKIM.timestamps = dataKIM.timestamps - dataKIM.timestamps(1);
+dataKIM.Gantry = [rawDataKIM{:,3}]';
+dataKIM.index = [rawDataKIM{:,1}]';
+
+% Calculate the number of arcs by looking at the change in gantry rotation
+%   Make gantry angles in the file continuous
+%   Calculate the change in gantry angle between points
+%   Sum the number of times this changes sign (ie rotation direction)
+%   Add one to give the number of arcs
+KIM.NumArcs = sum(abs(diff(diff(dataKIM.Gantry(dataKIM.Gantry<90)+360)>0)))+1;
+
+% Determine the index for treatment start
+d= diff(dataKIM.timestamps);
+[~, d_index] = sort(d,'descend');
+indexOfTreatStart = min(d_index(1:KIM.NumArcs)) + 1;
+dataKIM.indexOfTreatStart = indexOfTreatStart;
+
+%% Trajectories for KIM data
+% Index the markers by SI position where 1 is the most cranial and 3 the most caudal
+array = [rawDataKIM{1,6:3:3+3*nMar}];
+[~, index] = sort(array, 'descend');
+
+for n = 1:nMar
+    dataKIM.(['x' num2str(n)]) = [rawDataKIM{:,3+3*(index(n)-1)+2}]';   % LR maps to x
+    dataKIM.(['y' num2str(n)]) = [rawDataKIM{:,3+3*(index(n)-1)+3}]';   % SI maps to y
+    dataKIM.(['z' num2str(n)]) = [rawDataKIM{:,3+3*(index(n)-1)+1}]';   % AP maps to z
+    
+    %   C# indexes from 0 to N-1 so a + 1 is added to each 2D trajectory for
+    %   equivalent comparison to MATLAB
+    dataKIM.(['xp' num2str(n)]) = [rawDataKIM{:,(3+3*nMar)+2*(index(n)-1)+1}]' + 1;
+    dataKIM.(['yp' num2str(n)]) = [rawDataKIM{:,(3+3*nMar)+2*(index(n)-1)+2}]' + 1;
+end
+
+% Compute centroid for the 2D coordinates
+dataKIM.xpCent = (dataKIM.xp1 + dataKIM.xp2 + dataKIM.xp3) / 3 ;
+dataKIM.ypCent = (dataKIM.yp1 + dataKIM.yp2 + dataKIM.yp3) / 3 ;
+
+% Compute centroid 3D trajectories for KIM data
+dataKIM.r1 = sqrt(dataKIM.x1.^2 + dataKIM.y1.^2 + dataKIM.z1.^2);
+dataKIM.r2 = sqrt(dataKIM.x2.^2 + dataKIM.y2.^2 + dataKIM.z2.^2);
+dataKIM.r3 = sqrt(dataKIM.x3.^2 + dataKIM.y3.^2 + dataKIM.z3.^2);
+
+dataKIM.xCent = (dataKIM.x1 + dataKIM.x2 + dataKIM.x3)/3 - Avg_marker_x;
+dataKIM.yCent = (dataKIM.y1 + dataKIM.y2 + dataKIM.y3)/3 - Avg_marker_y;
+dataKIM.zCent = (dataKIM.z1 + dataKIM.z2 + dataKIM.z3)/3 - Avg_marker_z;
+dataKIM.rCent = sqrt(dataKIM.xCent.^2 + dataKIM.yCent.^2 + dataKIM.zCent.^2);
+
+dataKIM.xCentOff = dataKIM.xCent - dataKIM.xCent(1);
+dataKIM.yCentOff = dataKIM.yCent - dataKIM.yCent(1);
+dataKIM.zCentOff = dataKIM.zCent - dataKIM.zCent(1);
+dataKIM.rCentOff = sqrt(dataKIM.xCentOff.^2 + dataKIM.yCentOff.^2 + dataKIM.zCentOff.^2);
 
 end
