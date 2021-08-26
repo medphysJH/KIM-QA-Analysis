@@ -132,6 +132,7 @@ opts.VariableDescriptionsLine = 1; % first line contains varaiable descriptions
 opts.DataLines = 2;  % data starts on the second line
 
 if noOfTrajFiles > 1
+    rawDataKIM = cell(noOfTrajFiles,1);
     for traj = 1:noOfTrajFiles
         logfilename = fullfile(KIM.KIMTrajFolder, listOfTrajFiles(traj,:));
         rawDataKIM{traj} = readcell(logfilename, opts);
@@ -169,33 +170,32 @@ array = [rawDataKIM{1,6:3:3+3*nMar}];
 [~, index] = sort(array, 'descend');
 
 for n = 1:nMar
-    dataKIM.(['x' num2str(n)]) = [rawDataKIM{:,3+3*(index(n)-1)+2}]';   % LR maps to x
-    dataKIM.(['y' num2str(n)]) = [rawDataKIM{:,3+3*(index(n)-1)+3}]';   % SI maps to y
-    dataKIM.(['z' num2str(n)]) = [rawDataKIM{:,3+3*(index(n)-1)+1}]';   % AP maps to z
+    dataKIM.x_mm(:,n) = [rawDataKIM{:,3+3*(index(n)-1)+2}]';   % LR maps to x
+    dataKIM.y_mm(:,n) = [rawDataKIM{:,3+3*(index(n)-1)+3}]';   % SI maps to y
+    dataKIM.z_mm(:,n) = [rawDataKIM{:,3+3*(index(n)-1)+1}]';   % AP maps to z
     
     %   C# indexes from 0 to N-1 so a + 1 is added to each 2D trajectory for
     %   equivalent comparison to MATLAB
-    dataKIM.(['xp' num2str(n)]) = [rawDataKIM{:,(3+3*nMar)+2*(index(n)-1)+1}]' + 1;
-    dataKIM.(['yp' num2str(n)]) = [rawDataKIM{:,(3+3*nMar)+2*(index(n)-1)+2}]' + 1;
+    dataKIM.x_pix(:,n) = [rawDataKIM{:,(3+3*nMar)+2*(index(n)-1)+1}]' + 1;
+    dataKIM.y_pix(:,n) = [rawDataKIM{:,(3+3*nMar)+2*(index(n)-1)+2}]' + 1;
 end
 
 % Compute centroid for the 2D coordinates
-dataKIM.xpCent = (dataKIM.xp1 + dataKIM.xp2 + dataKIM.xp3) / 3 ;
-dataKIM.ypCent = (dataKIM.yp1 + dataKIM.yp2 + dataKIM.yp3) / 3 ;
+dataKIM.xCent_pix = sum(dataKIM.x_pix,2)/nMar ;
+dataKIM.yCent_pix = sum(dataKIM.y_pix,2)/nMar ;
 
 % Compute centroid 3D trajectories for KIM data
-dataKIM.r1 = sqrt(dataKIM.x1.^2 + dataKIM.y1.^2 + dataKIM.z1.^2);
-dataKIM.r2 = sqrt(dataKIM.x2.^2 + dataKIM.y2.^2 + dataKIM.z2.^2);
-dataKIM.r3 = sqrt(dataKIM.x3.^2 + dataKIM.y3.^2 + dataKIM.z3.^2);
+dataKIM.r_mm = sqrt(dataKIM.x_mm.^2 + dataKIM.y_mm.^2 + dataKIM.z_mm.^2);
 
-dataKIM.xCent = (dataKIM.x1 + dataKIM.x2 + dataKIM.x3)/3 - Avg_marker_x;
-dataKIM.yCent = (dataKIM.y1 + dataKIM.y2 + dataKIM.y3)/3 - Avg_marker_y;
-dataKIM.zCent = (dataKIM.z1 + dataKIM.z2 + dataKIM.z3)/3 - Avg_marker_z;
-dataKIM.rCent = sqrt(dataKIM.xCent.^2 + dataKIM.yCent.^2 + dataKIM.zCent.^2);
+dataKIM.xCent_mm = sum(dataKIM.x_mm,2)/nMar - Avg_marker_x;
+dataKIM.yCent_mm = sum(dataKIM.y_mm,2)/nMar - Avg_marker_y;
+dataKIM.zCent_mm = sum(dataKIM.z_mm,2)/nMar - Avg_marker_z;
+dataKIM.rCent_mm = sqrt(dataKIM.xCent.^2 + dataKIM.yCent.^2 + dataKIM.zCent.^2);
 
-dataKIM.xCentOff = dataKIM.xCent - dataKIM.xCent(1);
-dataKIM.yCentOff = dataKIM.yCent - dataKIM.yCent(1);
-dataKIM.zCentOff = dataKIM.zCent - dataKIM.zCent(1);
+dataKIM.xCentOff = dataKIM.xCent_mm - dataKIM.xCent_mm(1);
+dataKIM.yCentOff = dataKIM.yCent_mm - dataKIM.yCent_mm(1);
+dataKIM.zCentOff = dataKIM.zCent_mm - dataKIM.zCent_mm(1);
 dataKIM.rCentOff = sqrt(dataKIM.xCentOff.^2 + dataKIM.yCentOff.^2 + dataKIM.zCentOff.^2);
+disp(KIM)
 
 end
