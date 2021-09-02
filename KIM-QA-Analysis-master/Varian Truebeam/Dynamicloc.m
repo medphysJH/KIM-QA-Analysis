@@ -354,6 +354,7 @@ indexOfTreatStart = min(d_index(1:noOfArcs)) + 1;
 dataKIM.timestamps(indexOfTreatStart);
 %dataKIM.indexOfTreatStart = 100; %indexOfTreatStart;
 dataKIM.indexOfTreatStart = indexOfTreatStart;
+
 plotKIMAndHexa(dataMotion,dataKIM, dataKIMOff, indexForOff, folderKIM, deepestFolder);
 
 if exist('noti_fid', 'var')
