@@ -2,7 +2,7 @@
 % Dynamic localization tests
 %function dynamicTest(traj_type, folder_KIM_root)
 
-function Dynamicloc(traj_type, folder_KIM_root, coord_file, paramfile)
+function dynamicTest(traj_type, folder_KIM_root, coord_file, paramfile)
 
 %close all
 global deepestFolder;
@@ -12,25 +12,25 @@ global plotOffline
 global KIM
 global paramData
 
-noti_fid = msgbox('Processing, please don''t close');
+
 
 % ***************  Input section *****************************************
-% ************************************************************************
+% ************************************************************************ 
 
 %-Input Robot trajectory file
 
 %fileHexa = strcat('LiverTraj_BreathHold1_robot', '.txt');
 %fileHexa = input('Please enter the robot trajectory name within apostrophe (with the extension e.g. .txt):');
-fileMotion=KIM.KIMRobotFile;
-%- Input KIM trajectory folder name
+fileHexa=KIM.KIMRobotFile
+%- Input KIM trajectory folder name 
 %folderKIM = strcat('C:\LARK_QA\QA codes\Robot_traces', '\' , 'Transient');
-folderKIM = KIM.KIMTrajFolder;
+folderKIM = KIM.KIMTrajFolder
 %input('Please enter the folder name within apostrophe:')
 
-coordFile = KIM.KIMcoordFile;
+coordFile = KIM.KIMcoordFile
 
-paramfile = KIM.KIMparamFile;
-%- Input KIM trajectory file name
+paramfile = KIM.KIMparamFile
+%- Input KIM trajectory file name 
 
 fileKIM = '\MarkerLocationsGA_CouchShift_0.txt';
 %fileKIM =input('enter file name')
@@ -42,22 +42,23 @@ fileKIMOff = '\MarkerLocationsGA_CouchShift_0.txt';
 %covFile = '\covOutput (OL).txt' ;
 
 %- Copy file
+dirHexa = [fileHexa]; %[folderHexa ];
 dirKIM = [folderKIM fileKIM];
 dirKIMOff = [folderKIM fileKIMOff];
 
-% Copy the trajectory and covOutput file obtained online and add the tag (OL)
+% Copy the trajectory and covOutput file obtained online and add the tag (OL) 
 %if exist([folderKIM fileKIM], 'file') == 0
 %    copyfile([folderKIM '\MarkerLocationsGA_CouchShift_0.txt'], [folderKIM fileKIM]);
 %end
 
 %if exist([folderKIM covFile], 'file') == 0
-%   copyfile([folderKIM '\covOutput.txt'], [folderKIM covFile]);
+ %   copyfile([folderKIM '\covOutput.txt'], [folderKIM covFile]);
 %end
 
 
-%- Input parameters
+%- Input parameters 
 
-shiftMotionTrace = 0; % time in seconds by which Hexamotion trajectory was shifted
+shiftHexa = 0; % time in seconds by which Hexamotion trajectory was shifted
 noOfArcs = 1;
 
 % Average of the three marker positions with respect to the isocenter
@@ -83,16 +84,16 @@ latency = 0.2; %0.350;
 %************************** Analysis *************************************
 %*************************************************************************
 
-% Obtain data from the files
+% Obtain data from the files 
 %Obtain coordinate data
 % First row x, second row y, third row z
 fid = fopen(coordFile);
 coordData = fscanf(fid, '%f %f %f');
 fclose(fid);
 
-Avg_marker_x = (coordData(1) + coordData(4) + coordData(7))/3;
-Avg_marker_y = (coordData(2) + coordData(5) + coordData(8))/3;
-Avg_marker_z = (coordData(3) + coordData(6) + coordData(9))/3;
+Avg_marker_x = (coordData(1) + coordData(4) + coordData(7))/3
+Avg_marker_y = (coordData(2) + coordData(5) + coordData(8))/3
+Avg_marker_z = (coordData(3) + coordData(6) + coordData(9))/3
 
 Avg_marker_x_iso = 10*(Avg_marker_x - coordData(10));
 Avg_marker_y_iso = 10*(Avg_marker_y - coordData(11));
@@ -102,26 +103,26 @@ Avg_marker_x = Avg_marker_x_iso;
 Avg_marker_y = Avg_marker_z_iso;
 Avg_marker_z = -Avg_marker_y_iso;
 
-% Obtain parameters
+% Obtain parameters 
 fid = fopen(paramfile);
 paramData = fscanf(fid, '%f %f %f');
-% disp(paramData(1));
-% disp(paramData(2));
-% disp(paramData(3));
-fclose(fid);
+disp(paramData(1));
+disp(paramData(2));
+disp(paramData(3));
 
-% Obtain Motion data
-fid=fopen(fileMotion);
+% Obtain Hexa data
+fid=fopen(dirHexa);
+% rawDataHexa = textscan(fid, '%f %f %f %f %f %f %f');
 FirstLine = fgetl(fid);
 if ~isnumeric(FirstLine) && FirstLine(1)=='t'
     % Hexamotion trajectory files start with 'trajectory'
     isrobot = 0;
-    rawMotionData = textscan(fid, '%f %f %f');
+    rawDataHexa = textscan(fid, '%f %f %f');
 else
     % Robot trajectory files *should* start with '0'
     isrobot = 1;
     frewind(fid);
-    rawMotionData = textscan(fid, '%f %f %f %f %f %f %f');
+    rawDataHexa = textscan(fid, '%f %f %f %f %f %f %f');
     % else
     %     print('Unrecognised motion input file type')
     %     msgbox('Unrecognised motion input file type','Motion File Type');
@@ -143,39 +144,40 @@ rawDataKIMOff = textscan(fid, '%u,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%u,%u,%u,%u,%
 %fprintf("\n%f\t%f\n", rawDataKIMOff{1}, rawDataKIMOff{2});
 fclose(fid);
 
-% H. Obtain motion trajectory data
-% 3D trajectories
+% H. Obtain Hexamotion trajectory data
+% 3D trajectories for Hexa data
 offset = 0; %Time offset
 if isrobot
-    indexAtStart = shiftMotionTrace/0.2 + 1;
+    indexAtStart = shiftHexa/0.2 + 1;
 else
-    indexAtStart = shiftMotionTrace/0.02 + 1;
+    indexAtStart = shiftHexa/0.02 + 1;
 end
 if isrobot
-    dataMotion.x = (1).*rawMotionData{2}(indexAtStart:end);
-    dataMotion.y = rawMotionData{3}(indexAtStart:end);
-    dataMotion.z = (1).*rawMotionData{4}(indexAtStart:end);
-    dataMotion.r = sqrt(dataMotion.x.^2 + dataMotion.y.^2 + dataMotion.z.^2);
+    dataHexa.x = (1).*rawDataHexa{2}(indexAtStart:end);
+    dataHexa.y = rawDataHexa{3}(indexAtStart:end);
+    dataHexa.z = (1).*rawDataHexa{4}(indexAtStart:end);
+    dataHexa.r = sqrt(dataHexa.x.^2 + dataHexa.y.^2 + dataHexa.z.^2);
     
-    dataMotion.xOff = dataMotion.x - dataMotion.x(indexAtStart);
-    dataMotion.yOff = dataMotion.y - dataMotion.y(indexAtStart);
-    dataMotion.zOff = dataMotion.z - dataMotion.z(indexAtStart);
-    dataMotion.rOff = sqrt(dataMotion.xOff.^2 + dataMotion.yOff.^2 + dataMotion.zOff.^2);
+    dataHexa.xOff = dataHexa.x - dataHexa.x(indexAtStart);
+    dataHexa.yOff = dataHexa.y - dataHexa.y(indexAtStart);
+    dataHexa.zOff = dataHexa.z - dataHexa.z(indexAtStart);
+    dataHexa.rOff = sqrt(dataHexa.xOff.^2 + dataHexa.yOff.^2 + dataHexa.zOff.^2);
     
-    dataMotion.timestamps = rawMotionData{1} + offset;
+    dataHexa.timestamps = rawDataHexa{1} + offset;
 else
-    dataMotion.x = -1.*rawMotionData{1}(indexAtStart:end);
-    dataMotion.y = rawMotionData{2}(indexAtStart:end);
-    dataMotion.z = rawMotionData{3}(indexAtStart:end);
-    dataMotion.r = sqrt(dataMotion.x.^2 + dataMotion.y.^2 + dataMotion.z.^2);
+    dataHexa.x = -1.*rawDataHexa{1}(indexAtStart:end);
+    dataHexa.y = rawDataHexa{2}(indexAtStart:end);
+    dataHexa.z = rawDataHexa{3}(indexAtStart:end);
+    dataHexa.r = sqrt(dataHexa.x.^2 + dataHexa.y.^2 + dataHexa.z.^2);
     
-    dataMotion.xOff = dataMotion.x - dataMotion.x(indexAtStart);
-    dataMotion.yOff = dataMotion.y - dataMotion.y(indexAtStart);
-    dataMotion.zOff = dataMotion.z - dataMotion.z(indexAtStart);
-    dataMotion.rOff = sqrt(dataMotion.xOff.^2 + dataMotion.yOff.^2 + dataMotion.zOff.^2);
+    dataHexa.xOff = dataHexa.x - dataHexa.x(indexAtStart);
+    dataHexa.yOff = dataHexa.y - dataHexa.y(indexAtStart);
+    dataHexa.zOff = dataHexa.z - dataHexa.z(indexAtStart);
+    dataHexa.rOff = sqrt(dataHexa.xOff.^2 + dataHexa.yOff.^2 + dataHexa.zOff.^2);
     
-    dataMotion.timestamps = [0:0.02:(length(dataMotion.x)-1)*0.02]';
+    dataHexa.timestamps = [0:0.02:(length(dataHexa.x)-1)*0.02]';
 end
+
 
 % K. Obtain KIM trajectory data
 % Timestamps, Correlations and Segmentations from MarkerLocations_CouchShift_0.txt
@@ -257,7 +259,7 @@ dataKIM.r1 = sqrt(dataKIM.x1.^2 + dataKIM.y1.^2 + dataKIM.z1.^2);
 dataKIM.r2 = sqrt(dataKIM.x2.^2 + dataKIM.y2.^2 + dataKIM.z2.^2);
 dataKIM.r3 = sqrt(dataKIM.x3.^2 + dataKIM.y3.^2 + dataKIM.z3.^2);
 
-% K. Compute centroid 3D trajectories for KIM data %
+% K. Compute centroid 3D trajectories for KIM data % 
 % robot centroid = [-2.5885    1.3947 -0.9651 ]
 %dataKIM.xCent = (dataKIM.x1 + dataKIM.x2 + dataKIM.x3)/3 + 2.6 - 0.8; %2.6;
 %dataKIM.yCent = (dataKIM.y1 + dataKIM.y2 + dataKIM.y3)/3 - 2.5 + 1.467; %1.4;
@@ -337,7 +339,7 @@ fclose(id);
 
 
 % Find closest match between Hexa and KIM trajectory using the SI component
-shift = findClosestSI(dataMotion,dataKIM);
+shift = findClosestSI(dataHexa,dataKIM);
 
 %disp(shift)
 
@@ -349,33 +351,28 @@ dataKIM.timestamps = dataKIM.timestamps + totalShift;
 
 % To find when the treatment beam was on
 d= diff(dataKIM.timestamps);
-[~, d_index] = sort(d,'descend');
-indexOfTreatStart = min(d_index(1:noOfArcs)) + 1;
+[value, index] = sort(d,'descend');
+indexOfTreatStart = min(index(1:noOfArcs)) + 1;
 dataKIM.timestamps(indexOfTreatStart);
 %dataKIM.indexOfTreatStart = 100; %indexOfTreatStart;
 dataKIM.indexOfTreatStart = indexOfTreatStart;
+plotKIMAndHexa(dataHexa,dataKIM, dataKIMOff, indexForOff, folderKIM, deepestFolder);
 
-plotKIMAndHexa(dataMotion,dataKIM, dataKIMOff, indexForOff, folderKIM, deepestFolder);
-
-if exist('noti_fid', 'var')
-  delete(noti_fid);
-  clear('noti_fid');
-end
 
 end
 
 function shift = findClosestSI(dataHexa,dataKIM)
 global paramData
 global KIM
-% shiftValues = -30:0.01:30;
+shiftValues = -30:0.01:30;
 %rmseValues = ones(1,length(shiftValues));
-sigma = 2;
+sigma = 2; 
 if (dataKIM.timestamps(end) > dataHexa.timestamps(end))
-    index = find( (dataKIM.timestamps < dataHexa.timestamps(end) - sigma) & (dataKIM.timestamps > dataHexa.timestamps(end) - 2*sigma));
-    shiftValues = paramData(1):paramData(2):paramData(3);
-    
+   index = find( (dataKIM.timestamps < dataHexa.timestamps(end) - sigma) & (dataKIM.timestamps > dataHexa.timestamps(end) - 2*sigma));  
+   shiftValues = paramData(1):paramData(2):paramData(3);
+   
 else
-    index = length(dataKIM.timestamps);
+    index = length(dataKIM.timestamps); 
     shiftValues = paramData(1):paramData(2):paramData(3);
     
 end
@@ -383,17 +380,18 @@ end
 rmseValues = ones(1,length(shiftValues));
 for n=1:length(shiftValues)
     
-    %interpHexa.z = interp1(dataHexa.timestamps, dataHexa.z, dataKIM.timestamps(1:index(1)) + shiftValues(n));
-    interpHexa.y = interp1(dataHexa.timestamps, dataHexa.y, dataKIM.timestamps(1:index(1)) + shiftValues(n));
+%     interpHexa.y = interp1(dataHexa.timestamps, dataHexa.y, dataKIM.timestamps(1:index(1)) + shiftValues(n));
+%     rmseValues(n) = rmse(dataKIM.yCent(1:index(1)),interpHexa.y);
+    
+    interpHexa.z = interp1(dataHexa.timestamps, dataHexa.z, dataKIM.timestamps(1:index(1)) + shiftValues(n));
+    rmseValues(n) = rmse(dataKIM.zCent(1:index(1)),interpHexa.z);
+    
     %figure(2); plot(dataHexa.timestamps, dataHexa.y, 'r', dataKIM.timestamps, dataKIM.yCent, 'g', dataKIM.timestamps + shiftValues(n), interpHexa.y, 'b');
-    rmseValues(n) = rmse(dataKIM.yCent(1:index(1)),interpHexa.y);
-    %rmseValues(n) = rmse(dataKIM.zCent(1:index(1)),interpHexa.z);
     
 end
 
 shift = shiftValues(rmseValues == min(rmseValues));
-% disp(shift)
-
+disp(shift)
 end
 
 function result = rmse(x,y)
@@ -496,6 +494,11 @@ hold off
 
 computeStats(dataHexa,dataKIM,dataKIMOff, folderKIM, deepestFolder);
 
+%figure(3);
+%close
+%figure(4);
+%close
+
 end
 
 % Compute some statistics
@@ -504,31 +507,25 @@ global KIM
 
 %***************** This part writes output in a file ********************
 
-%figure(3);
-%close
-%figure(4);
-%close
-
-prefix = datestr(now, 'yymmdd-HHMM');
-[~, RobotFile, ~] = fileparts(KIM.KIMRobotFile);
-if length(RobotFile)<20
-    middle = RobotFile;
-else
-    middle = RobotFile(1:20);
-end
-append = '_Dynamic.txt';
-file_output = [prefix '_' middle append];
-
-fileID1 = fopen(fullfile(KIM.KIMOutputFolder, file_output), 'w');
+str1 = deepestFolder
+disp(deepestFolder)
+str2 = '_output.txt'
+file_output = strcat(str1, str2)
+%fileID1 = fopen(file_output, 'w');
+%fileID1 = fopen('C:\LARK_QA\QA codes\Robot_traces\', file_output,  'w');
+outputPath = strcat('C:\LARK_QA\QA codes\Robot_traces\');
+%file_output = fullfile('C:\LARK_QA\QA codes\Robot_traces\', str1, str2);
+currentfolder = pwd
+fileID1 = fopen(file_output, 'w');
 %************************************************************************
 
 
-sigma = 0.5;
+sigma = 0.5; 
 if (dataKIM.timestamps(end) > dataHexa.timestamps(end))
     
-    index = find( (dataKIM.timestamps < dataHexa.timestamps(end)) & (dataKIM.timestamps > dataHexa.timestamps(end) - sigma));
+    index = find( (dataKIM.timestamps < dataHexa.timestamps(end)) & (dataKIM.timestamps > dataHexa.timestamps(end) - sigma));  
 else
-    index = length(dataKIM.timestamps);
+    index = length(dataKIM.timestamps); 
 end
 
 
@@ -539,20 +536,20 @@ interpHexa.x = interp1(dataHexa.timestamps, dataHexa.x, dataKIM.timestamps(1:ind
 interpHexa.y = interp1(dataHexa.timestamps, dataHexa.y, dataKIM.timestamps(1:index(1)));
 interpHexa.z = interp1(dataHexa.timestamps, dataHexa.z, dataKIM.timestamps(1:index(1)));
 
-interpHexa.xTreat = interp1(dataHexa.timestamps, dataHexa.x, dataKIM.timeTreat);
-interpHexa.yTreat = interp1(dataHexa.timestamps, dataHexa.y, dataKIM.timeTreat);
-interpHexa.zTreat = interp1(dataHexa.timestamps, dataHexa.z, dataKIM.timeTreat);
+ interpHexa.xTreat = interp1(dataHexa.timestamps, dataHexa.x, dataKIM.timeTreat);
+ interpHexa.yTreat = interp1(dataHexa.timestamps, dataHexa.y, dataKIM.timeTreat);
+ interpHexa.zTreat = interp1(dataHexa.timestamps, dataHexa.z, dataKIM.timeTreat);
 
 
 % Get rid of offset - due to imperfect phantom alignment
-% dataKIM.xCentTreat = dataKIM.xCentTreat;  %- mean(dataKIM.xCentTreat(10:100));
-% dataKIM.yCentTreat = dataKIM.yCentTreat; %- mean(dataKIM.yCentTreat(10:100));
-% dataKIM.zCentTreat = dataKIM.zCentTreat; %- mean(dataKIM.zCentTreat(1:10));
+% dataKIM.xCentTreat = dataKIM.xCentTreat;  %- mean(dataKIM.xCentTreat(10:100)); 
+% dataKIM.yCentTreat = dataKIM.yCentTreat; %- mean(dataKIM.yCentTreat(10:100)); 
+% dataKIM.zCentTreat = dataKIM.zCentTreat; %- mean(dataKIM.zCentTreat(1:10)); 
 
 % Get rid of offset - due to imperfect phantom alignment
-%  dataKIM.xCent = dataKIM.xCent - mean(dataKIM.xCent(1:100));
-%  dataKIM.yCent = dataKIM.yCent - mean(dataKIM.yCent(1:100));
-%  dataKIM.zCent = dataKIM.zCent - mean(dataKIM.zCent(200:250));
+%  dataKIM.xCent = dataKIM.xCent - mean(dataKIM.xCent(1:100)); 
+%  dataKIM.yCent = dataKIM.yCent - mean(dataKIM.yCent(1:100)); 
+%  dataKIM.zCent = dataKIM.zCent - mean(dataKIM.zCent(200:250)); 
 
 % KO. Treatment only
 meanLRTreat = mean(dataKIM.xCentTreat - interpHexa.xTreat);
@@ -580,10 +577,10 @@ figure(12);
 hold on
 
 %rectangle('Position',[dataKIM.timestamps(dataKIM.indexOfTreatStart),yLow+0.01,dataKIM.timestamps(end)-dataKIM.timestamps(dataKIM.indexOfTreatStart),yUp-yLow],'EdgeColor',[0.8 0.8 0.8],'FaceColor',[0.9 0.9 0.9]);
-plot(dataKIM.timestamps, dataKIM.yCent(1:index(1)) - interpHexa.y,'k-', 'linewidth', 1);
+% plot(dataKIM.timestamps, dataKIM.yCent(1:index(1)) - interpHexa.y,'k-', 'linewidth', 1);
 
-% disp(dataKIM.timestamps(2))
-% disp(length(dataKIM.timestamps))
+disp(dataKIM.timestamps(2))
+disp(length(dataKIM.timestamps))
 % KOFF. KIM offline metrics (treatment only and including pre arc)
 dataKIMOff.xCentTreat = dataKIMOff.xCent(indexOfTreatStart:end);
 dataKIMOff.yCentTreat = dataKIMOff.yCent(indexOfTreatStart:end);
@@ -644,32 +641,32 @@ pctAPOff = tsprctile((dataKIMOff.zCent(1:index(1)) - interpHexa.z), [5 95]);
 %%% Check if KIM pass this dynamic test
 
 if 0 %(indexOfTreatStart > (index(1) + 10))
-    
+   
     All_mean = [meanLRTreat, meanSITreat, meanAPTreat];
-    All_std = [stdLRTreat, stdSITreat, stdAPTreat];
+    All_std = [stdLRTreat, stdSITreat, stdAPTreat]; 
     
 else
     
     All_mean = [meanLR, meanSI, meanAP];
     All_std = [stdLR, stdSI, stdAP];
 end
-Failname = [' LR';' SI';' AP'];
+Failname = [' LR';' SI';' AP']; 
 
-any_mean_fail = find(abs(All_mean) > 1);
-any_std_fail = find(abs(All_std > 2));
+any_mean_fail = find(abs(All_mean) > 1); 
+any_std_fail = find(abs(All_std > 2)); 
 
 
 if (~isempty(any_mean_fail))
     %set(KIM.handles.text4,'string','FAIL')
     %set(KIM.handles.text4,'BackgroundColor',[1 0 0])
-    line1 = ['QA result: KIM FAILED in Dynamic test with trajectory ', deepestFolder, ': mean difference of',];
+    line1 = ['QA result: KIM FAILED in Dynamic test with trajectory %s', deepestFolder, ': mean difference of',]; 
     fprintf(fileID1,'\n%s\n','QA result: KIM FAILED in Dynamic test');
     for i = 1: length(any_mean_fail)
         if i == length(any_mean_fail)
             line1 = [line1, Failname(any_mean_fail(i), :), ' > or = 2 mm'];
         else
             line1 = [line1, Failname(any_mean_fail(i), :), ','];
-        end
+        end 
     end
     
 elseif (~isempty(any_std_fail))
@@ -682,14 +679,14 @@ elseif (~isempty(any_std_fail))
             line1 = [line1, Failname(any_std_fail(i), :), ' > or = 2 mm'];
         else
             line1 = [line1, Failname(any_std_fail(i), :), ','];
-        end
+        end 
     end
 else
     %set(KIM.handles.text4,'string','PASS')
     %set(KIM.handles.text4,'BackgroundColor',[0 1 0])
     line1 = ['QA result: KIM PASSED in Dynamic test with trajectory ', deepestFolder];
     fprintf(fileID1,'QA result: KIM PASSED in Dynamic test');
-end
+end 
 %%% Printing results
 proTime1 = sprintf('Processing time per image (Online): %1.2f seconds \n', mean(diff(dataKIM.timestamps)));
 proTime2 = sprintf('Processing time per image (Offline): %1.2f seconds \n', mean(diff(dataKIMOff.timestamps)));
@@ -714,7 +711,7 @@ dataLine2 = sprintf('Offline\t%1.2f\t%1.2f\t%1.2f\t%1.2f\t%1.2f\t%1.2f\t(%1.2f, 
 line2 = sprintf('\tMean\t\t\tStd\t\t\tPercentile(5,95)');
 line3 = sprintf('\tLR\tSI\tAP\tLR\tSI\tAP\tLR\t\tSI\t\tAP');
 
-line1 = sprintf('%s \n', line1);
+line1 = sprintf('%s \n', line1); 
 
 disp(line1)
 disp(proTime1)
@@ -731,14 +728,14 @@ fprintf(fileID1, '%s\t %s\t %s\t %s\t %s\t %s\t %s\t\t %s\t\t %s\t\t %s\r', ' ',
 fprintf(fileID1, '\t%1.2f\t %1.2f\t %1.2f\t %1.2f\t %1.2f\t %1.2f\t\t(%1.2f, %1.2f)\t(%1.2f, %1.2f)\t(%1.2f, %1.2f)\r', All_mean(1), All_mean(2), All_mean(3), All_std(1), All_std(2), All_std(3), pctLRTreat, pctSITreat, pctAPTreat);
 
 fclose(fileID1);
-% fclose('all');
+fclose('all')
 
 % Display metrics in a sexy table
 
 % pctLR = ['(' num2str(pctLRTreat(1)) ',' num2str(pctLRTreat(2)) ')'];
 % pctSI = ['(' num2str(pctSITreat(1)) ',' num2str(pctSITreat(2)) ')'];
 % pctAP = ['(' num2str(pctAPTreat(1)) ',' num2str(pctAPTreat(2)) ')'];
-%
+% 
 % dataLine1 = {meanLRTreat, meanSITreat, meanAPTreat, stdLRTreat, stdSITreat, stdAPTreat, pctLR, pctSI, pctAP};
 % table = figure('Position',[200 300 1000 200]);
 % cnames = {'Mean|LR', 'Mean|SI', 'Mean|AP', 'Std|LR', 'Std|SI', 'Std|AP' , 'Percentile (5,95)|LR', 'Percentile (5,95)|SI', 'Percentile (5,95)|AP', 'Pass/Fail'};

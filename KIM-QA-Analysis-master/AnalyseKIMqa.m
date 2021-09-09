@@ -1,4 +1,4 @@
-function AnalyseKIMqa(KIM)
+function AnalyseKIMqa(KIMmotion)
 % AnalyseKIMqa(KIM);
 %
 % Purpose: Analyse KIM log files acquired during routine QA and compare
@@ -14,7 +14,7 @@ function AnalyseKIMqa(KIM)
 %% setup internal variables
 
 % Find KIM trajectory log files in the specified folder
-listOfTrajFiles = ls([KIM.KIMTrajFolder '\*GA*.txt']);
+listOfTrajFiles = ls([KIMmotion.KIMTrajFolder '\*GA*.txt']);
 for n = size(listOfTrajFiles,1):-1:1
    if contains(listOfTrajFiles(n,:), 'ol', 'IgnoreCase', true)
        listOfTrajFiles(n,:) = [];
@@ -24,7 +24,7 @@ noOfTrajFiles = size(listOfTrajFiles,1);
 
 % Create output file name
 prefix = datestr(now, 'yymmdd-HHMM');
-[~, RobotFile, ~] = fileparts(KIM.KIMRobotFile);
+[~, RobotFile, ~] = fileparts(KIMmotion.KIMRobotFile);
 if length(RobotFile)<20
     middle = RobotFile;
 else
@@ -32,7 +32,7 @@ else
 end
 append = '_Dynamic.txt';
 file_output = [prefix '_' middle append];
-file_output = fullfile(KIM.KIMOutputFolder, file_output);
+file_output = fullfile(KIMmotion.KIMOutputFolder, file_output);
 
 % Original code included a latency value of either 0.2 (Dyn) or 0.35 (TxInt)
 %   No documentation regarding source or reason for this value was included
@@ -44,7 +44,7 @@ latency = 0;
 % First 'n' rows are marker co-ordinates
 % Last row is the isocentre
 
-fid = fopen(KIM.KIMcoordFile);
+fid = fopen(KIMmotion.KIMcoordFile);
 coordData = fscanf(fid, '%f %f %f');
 fclose(fid);
 
@@ -57,14 +57,14 @@ marker_z = sum(coordData(3:3:end-3))/nMar;
 % Marker co-ordinates need to be transformed to machine space (Dicom to IEC)
 % In IEC space y is inverted and y and z are switched
 Avg_marker_x = 10*(marker_x - coordData(end-2));
-Avg_marker_y = 10*(marker_z - coordData(end-1));
-Avg_marker_z = -10*(marker_y - coordData(end));
+Avg_marker_y = 10*(marker_z - coordData(end));
+Avg_marker_z = -10*(marker_y - coordData(end-1));
 
 %% Read parameter file
 % this may be removed if it isn't needed
 % Dynamic requires 3 parameters
-if isfile(KIM.KIMparamFile)
-    fid = fopen(KIM.KIMparamFile);
+if isfile(KIMmotion.KIMparamFile)
+    fid = fopen(KIMmotion.KIMparamFile);
     paramData = fscanf(fid, '%f');
     fclose(fid);
     if length(paramData) ~= 3
@@ -77,7 +77,7 @@ end
 %% Read and extract motion data
 % accepts both Robot 6DOF file and Hexamotion 3 DOF files
 
-fid = fopen(KIM.KIMRobotFile);
+fid = fopen(KIMmotion.KIMRobotFile);
 FirstLine = fgetl(fid);
 if ~isnumeric(FirstLine) && FirstLine(1)=='t'
     % Hexamotion trajectory files start with 'trajectory'
@@ -133,8 +133,8 @@ else
 end
 
 %% Read couchshift file
-if exist(fullfile(KIM.KIMTrajFolder, 'couchShifts.txt'),'file') == 2
-    fid=fopen(fullfile(KIM.KIMTrajFolder, 'couchShifts.txt'));
+if exist(fullfile(KIMmotion.KIMTrajFolder, 'couchShifts.txt'),'file') == 2
+    fid=fopen(fullfile(KIMmotion.KIMTrajFolder, 'couchShifts.txt'));
     couch.Positions = textscan(fid, '%f,%f,%f\r', 'headerlines', 1);
     fclose(fid);
     
@@ -159,7 +159,7 @@ opts.DataLines = 2;  % data starts on the second line
 if noOfTrajFiles > 1
     rawDataKIM = cell(noOfTrajFiles,1);
     for traj = 1:noOfTrajFiles
-        logfilename = fullfile(KIM.KIMTrajFolder, listOfTrajFiles(traj,:));
+        logfilename = fullfile(KIMmotion.KIMTrajFolder, listOfTrajFiles(traj,:));
         rawDataKIM{traj} = readcell(logfilename, opts);
     end
     ShiftIndex_KIM = cellfun('size',rawDataKIM,1);
@@ -167,7 +167,7 @@ if noOfTrajFiles > 1
     
     rawDataKIM = vertcat(rawDataKIM{:});
 else
-    logfilename = fullfile(KIM.KIMTrajFolder, listOfTrajFiles);
+    logfilename = fullfile(KIMmotion.KIMTrajFolder, listOfTrajFiles);
     rawDataKIM = readcell(logfilename, opts);
 end
 
@@ -181,12 +181,12 @@ dataKIM.index = [rawDataKIM{:,1}]';
 %   Calculate the change in gantry angle between points
 %   Sum the number of times this changes sign (ie rotation direction)
 %   Add one to give the number of arcs
-KIM.NumArcs = sum(abs(diff(diff(dataKIM.Gantry(dataKIM.Gantry<90)+360)>0)))+1;
+KIMmotion.NumArcs = sum(abs(diff(diff(dataKIM.Gantry(dataKIM.Gantry<90)+360)>0)))+1;
 
 % Determine the index for treatment start
 d= diff(dataKIM.timestamps);
 [~, d_index] = sort(d,'descend');
-indexOfTreatStart = min(d_index(1:KIM.NumArcs)) + 1;
+indexOfTreatStart = min(d_index(1:KIMmotion.NumArcs)) + 1;
 dataKIM.indexOfTreatStart = indexOfTreatStart;
 
 %% Trajectories for KIM data
@@ -198,9 +198,9 @@ array = [rawDataKIM{1,6:3:3+3*nMar}];
 [~, index] = sort(array, 'descend');
 
 for n = 1:nMar
-    dataKIM.x_mm(:,n) = [rawDataKIM{:,3+3*(index(n)-1)+2}]';   % LR maps to x
-    dataKIM.y_mm(:,n) = [rawDataKIM{:,3+3*(index(n)-1)+3}]';   % SI maps to y
-    dataKIM.z_mm(:,n) = [rawDataKIM{:,3+3*(index(n)-1)+1}]';   % AP maps to z
+    dataKIM.x(:,n) = [rawDataKIM{:,3+3*(index(n)-1)+2}]';   % LR maps to x
+    dataKIM.y(:,n) = [rawDataKIM{:,3+3*(index(n)-1)+3}]';   % SI maps to y
+    dataKIM.z(:,n) = [rawDataKIM{:,3+3*(index(n)-1)+1}]';   % AP maps to z
     
     % C# indexes from 0 to N-1 so a + 1 is added to each 2D trajectory for
     %	equivalent comparison to MATLAB
@@ -213,26 +213,26 @@ dataKIM.xCent_pix = sum(dataKIM.x_pix,2)/nMar ;
 dataKIM.yCent_pix = sum(dataKIM.y_pix,2)/nMar ;
 
 % Compute centroid 3D trajectories for KIM data
-dataKIM.r_mm = sqrt(dataKIM.x_mm.^2 + dataKIM.y_mm.^2 + dataKIM.z_mm.^2);
+dataKIM.r = sqrt(dataKIM.x.^2 + dataKIM.y.^2 + dataKIM.z.^2);
 
-dataKIM.xCent_mm = sum(dataKIM.x_mm,2)/nMar - Avg_marker_x;
-dataKIM.yCent_mm = sum(dataKIM.y_mm,2)/nMar - Avg_marker_y;
-dataKIM.zCent_mm = sum(dataKIM.z_mm,2)/nMar - Avg_marker_z;
-dataKIM.rCent_mm = sqrt(dataKIM.xCent_mm.^2 + dataKIM.yCent_mm.^2 + dataKIM.zCent_mm.^2);
+dataKIM.xCent = sum(dataKIM.x,2)/nMar - Avg_marker_x;
+dataKIM.yCent = sum(dataKIM.y,2)/nMar - Avg_marker_y;
+dataKIM.zCent = sum(dataKIM.z,2)/nMar - Avg_marker_z;
+dataKIM.rCent = sqrt(dataKIM.xCent.^2 + dataKIM.yCent.^2 + dataKIM.zCent.^2);
 
-dataKIM.xCentOff = dataKIM.xCent_mm - dataKIM.xCent_mm(1);
-dataKIM.yCentOff = dataKIM.yCent_mm - dataKIM.yCent_mm(1);
-dataKIM.zCentOff = dataKIM.zCent_mm - dataKIM.zCent_mm(1);
+dataKIM.xCentOff = dataKIM.xCent - dataKIM.xCent(1);
+dataKIM.yCentOff = dataKIM.yCent - dataKIM.yCent(1);
+dataKIM.zCentOff = dataKIM.zCent - dataKIM.zCent(1);
 dataKIM.rCentOff = sqrt(dataKIM.xCentOff.^2 + dataKIM.yCentOff.^2 + dataKIM.zCentOff.^2);
 
 %% Align KIM and motion traces
 if couch.NumShifts >= 1
-    dataKIM.unshifted = [dataKIM.xCent_mm dataKIM.yCent_mm dataKIM.zCent_mm];
+    dataKIM.unshifted = [dataKIM.xCent dataKIM.yCent dataKIM.zCent];
     dataMotion.unshifted = [dataMotion.x dataMotion.y dataMotion.z];
     for n = 1:couch.NumShifts
-        dataKIM.yCent_mm(ShiftIndex_KIM(n):end) = dataKIM.yCent_mm(ShiftIndex_KIM(n):end) - couch.ShiftsSI(n);
-        dataKIM.xCent_mm(ShiftIndex_KIM(n):end) = dataKIM.xCent_mm(ShiftIndex_KIM(n):end) - couch.ShiftsLR(n);
-        dataKIM.zCent_mm(ShiftIndex_KIM(n):end) = dataKIM.zCent_mm(ShiftIndex_KIM(n):end) - couch.ShiftsAP(n);
+        dataKIM.yCent(ShiftIndex_KIM(n):end) = dataKIM.yCent(ShiftIndex_KIM(n):end) - couch.ShiftsSI(n);
+        dataKIM.xCent(ShiftIndex_KIM(n):end) = dataKIM.xCent(ShiftIndex_KIM(n):end) - couch.ShiftsLR(n);
+        dataKIM.zCent(ShiftIndex_KIM(n):end) = dataKIM.zCent(ShiftIndex_KIM(n):end) - couch.ShiftsAP(n);
     
         [~,ShiftIndex_Mot(n)] = min(abs(dataMotion.timestamps - dataKIM.timestamps(ShiftIndex_KIM(n))));
         
@@ -240,11 +240,16 @@ if couch.NumShifts >= 1
         dataMotion.y(ShiftIndex_Mot(n):end) = dataMotion.y(ShiftIndex_Mot(n):end) + couch.ShiftsSI(n);
         dataMotion.x(ShiftIndex_Mot(n):end) = dataMotion.z(ShiftIndex_Mot(n):end) + couch.ShiftsAP(n);
     end
+else
+    dataKIM.unshifted = [dataKIM.xCent dataKIM.yCent dataKIM.zCent];
+    dataMotion.unshifted = [dataMotion.x dataMotion.y dataMotion.z];
 end
 
-TimeStart = -dataKIM.timestamps(1);
+% TimeStart = -dataKIM.timestamps(1);
+TimeStart = -dataKIM.timestamps(round(length(dataKIM.timestamps)/2));
 TimeStep = mean(diff(dataMotion.timestamps))/4;
-TimeEnd = abs(dataKIM.timestamps(end) - dataMotion.timestamps(end));
+% TimeEnd = abs(dataKIM.timestamps(end) - dataMotion.timestamps(end));
+TimeEnd = abs(dataKIM.timestamps(round(length(dataKIM.timestamps)/2)) - dataMotion.timestamps(end));
 ShiftValues = TimeStart:TimeStep:TimeEnd;
 % ShiftValues = paramData(1):paramData(2):paramData(3);
 
@@ -256,26 +261,41 @@ else
     KIM_time = dataKIM.timestamps;
 end
 MotionTime = dataMotion.timestamps;
-MotionY = dataMotion.y; %NEEDS TO BE UPDATED TO UNSHIFTED DATAMOTION
-KIMy = dataKIM.yCent_mm(1:end_index);
+Motion = smoothdata(sqrt(sum(dataMotion.unshifted.^2,2)),'gaussian',1/mean(diff(dataMotion.timestamps))); % Smooth the source motion using a 1 second window
+rKIMmotion = sqrt(dataKIM.xCent.^2 + dataKIM.yCent.^2 + dataKIM.zCent.^2);
+start_index = find(rKIMmotion<1,1); % Find the first datapoint < 1 to trim the start of the KIM signal incase there are artefacts when tracking starts
+KIMmagnitude = smoothdata(rKIMmotion(start_index:end_index),'gaussian',5);  % smooth the KIM data using a 5 data point window
+KIM_time = KIM_time(start_index:end);
+
+Motion = Motion - min(Motion);
+KIMmagnitude = KIMmagnitude - min(KIMmagnitude); 
+
 rmseSI = nan(1,length(ShiftValues));
+% figure(1)
+% pause(0.1)
 for a = 1:length(ShiftValues)
-    interpMotionY = interp1(MotionTime, MotionY, KIM_time + ShiftValues(a));
-    rmseSI(a) = sum((KIMy-interpMotionY).^2)/end_index;
+    mod_time = KIM_time + ShiftValues(a);
+    interpMotion = interp1(MotionTime, Motion, mod_time(mod_time>0 & mod_time<MotionTime(end)));
+    rmseSI(a) = sum((KIMmagnitude(mod_time>0 & mod_time<MotionTime(end))-interpMotion).^2)/end_index;
+    
+%     if rem(a,100)==0
+%         plot(mod_time(mod_time>0 & mod_time<MotionTime(end)), interpMotion, 'k-', mod_time(mod_time>0 & mod_time<MotionTime(end)), KIMmotion(mod_time>0 & mod_time<MotionTime(end)), 'g.')
+%         pause(0.05)
+%     end
 end
+% close(1)
+
 [~,I] = min(rmseSI);
 TimeShift = ShiftValues(I);
-
-
 
 %% Results and Output
 
 dataKIM.CorrectedTime = dataKIM.timestamps + TimeShift + latency;
 
 dataKIM.treat.time = dataKIM.CorrectedTime(dataKIM.indexOfTreatStart:end);
-dataKIM.treat.x = dataKIM.xCent_mm(dataKIM.indexOfTreatStart:end);
-dataKIM.treat.y = dataKIM.yCent_mm(dataKIM.indexOfTreatStart:end);
-dataKIM.treat.z = dataKIM.zCent_mm(dataKIM.indexOfTreatStart:end);
+dataKIM.treat.x = dataKIM.xCent(dataKIM.indexOfTreatStart:end);
+dataKIM.treat.y = dataKIM.yCent(dataKIM.indexOfTreatStart:end);
+dataKIM.treat.z = dataKIM.zCent(dataKIM.indexOfTreatStart:end);
 
 % Interpolate source motion to match KIM timepoints and ensure there are no
 %   NaN values
@@ -304,9 +324,9 @@ dataKIM.analysis.TxResults{3,:} = tsprctile(dataKIM.analysis.TxMotionDiff,[5 95]
 % *For all acquired KIM data (including prearc data)*
 % Repeat above
 % For ease of data processing rearrange positional data into column: x(LR), y(SI), z(AP)
-dataKIM.analysis.AllMotionDiff(:,1) = dataKIM.xCent_mm - dataMotion.interp.x;
-dataKIM.analysis.AllMotionDiff(:,2) = dataKIM.yCent_mm - dataMotion.interp.y;
-dataKIM.analysis.AllMotionDiff(:,3) = dataKIM.zCent_mm - dataMotion.interp.z;
+dataKIM.analysis.AllMotionDiff(:,1) = dataKIM.xCent - dataMotion.interp.x;
+dataKIM.analysis.AllMotionDiff(:,2) = dataKIM.yCent - dataMotion.interp.y;
+dataKIM.analysis.AllMotionDiff(:,3) = dataKIM.zCent - dataMotion.interp.z;
 
 % Calculate mean, stdev and percentile for the positinal data
 dataKIM.analysis.AllResults{1,:} = mean(dataKIM.analysis.AllMotionDiff,1);
@@ -340,11 +360,11 @@ writecell(OutputText,file_output, 'Delimiter','space', 'QuoteStrings', false)
 
 %% Plots
 % Plot basic KIM x-y-z data
-figure, plot(dataKIM.timestamps, dataKIM.xCent_mm, 'bo', dataKIM.timestamps, dataKIM.yCent_mm, 'go', dataKIM.timestamps, dataKIM.zCent_mm, 'ro')
+figure, plot(dataKIM.timestamps, dataKIM.xCent, 'bx', dataKIM.timestamps, dataKIM.yCent, 'gx', dataKIM.timestamps, dataKIM.zCent, 'rx')
 ylabel('Position (mm)', 'fontsize',16);
 xlabel('Time (s)', 'fontsize',16);
 title('KIM 3DoF motion', 'fontsize', 16);
-legend('LR (KIM)', 'SI (KIM)', 'AP (KIM)');
+legend('LR (KIM)', 'SI (KIM)', 'AP (KIM)', 'Location', 'best');
 set(gca,'fontsize',16)
 
 if couch.NumShifts > 1
@@ -356,42 +376,52 @@ if couch.NumShifts > 1
     set(gca,'fontsize',16)
     
     % Plot KIM SI corrected for couch shifts
-    figure, plot(dataKIM.yCent_mm, 'g.', 'linewidth', 3)
+    figure, plot(dataKIM.yCent, 'g.', 'linewidth', 3)
     xlabel('Index', 'fontsize',16)
     ylabel('SI position (mm)', 'fontsize',16)
     title('Step 2: KIM with couch shifts undone', 'fontsize', 16)
     set(gca,'fontsize',16)
     
     % Plot KIM with expected motion data (unmatched)
-    figure, plot(dataMotion.timestamps, dataMotion.y, 'k-', dataKIM.timestamps, dataKIM.yCent_mm, 'g.')
+    figure, plot(dataMotion.timestamps, dataMotion.y, 'k-', dataKIM.timestamps, dataKIM.yCent, 'g.')
     xlabel('Index', 'fontsize',16)
     ylabel('SI position (mm)', 'fontsize',16)
     title('Step 3: KIM before time shift', 'fontsize', 16)
     set(gca,'fontsize',16)
-    
-    % Plot KIM synced with expected motion data
-    figure, plot(dataMotion.timestamps, dataMotion.y, 'k-', dataKIM.CorrectedTime, dataKIM.yCent_mm, 'g.')
-    xlabel('Index', 'fontsize',16)
-    ylabel('SI position (mm)', 'fontsize',16)
-    title('Step 4: KIM with couch shifts undone and with time shift', 'fontsize', 16)
-    set(gca,'fontsize',16)
 else
-    figure, plot(dataKIM.yCent_mm, 'g.', 'linewidth', 3)
+    figure, plot(dataKIM.yCent, 'g.', 'linewidth', 3)
     xlabel('Index', 'fontsize',16)
     ylabel('SI position (mm)', 'fontsize',16)
     title('KIM SI trace', 'fontsize', 16)
     set(gca,'fontsize',16)
 end
 
+% Plot KIM synced with expected motion data
 figure
 hold on
-plot(dataKIM.timestamps, dataKIM.yCent_mm,'gx', dataKIM.timestamps, dataKIM.zCent_mm,'rx', dataKIM.timestamps, dataKIM.xCent_mm,'bx', 'linewidth', 3)
+plot(MotionTime, Motion, 'kx', KIM_time + TimeShift, KIMmagnitude, 'g.')
+plot(MotionTime, sqrt(sum(dataMotion.unshifted.^2,2)), 'c-', KIM_time + TimeShift, rKIMmotion(start_index:end_index), 'r--')
+xlabel('Index', 'fontsize',16)
+ylabel('Position (mm)', 'fontsize',16)
+title('Smoothed source motion vs KIM detected motion', 'fontsize', 16)
+legend('Smoothed Source', 'Smoothed KIM', 'Source', 'KIM', 'Location', 'best');
+set(gca,'fontsize',16)
+hold off
+ImageFilename = [prefix '_' middle '_KIM_Source_synced.jpg'];
+% print('-djpeg','-r300',fullfile(KIMmotion.KIMOutputFolder,ImageFilename))
+
+figure
+hold on
+plot(dataKIM.CorrectedTime, dataKIM.yCent,'gx', dataKIM.CorrectedTime, dataKIM.zCent,'rx', dataKIM.CorrectedTime, dataKIM.xCent,'bx', 'linewidth', 3)
 plot(dataMotion.timestamps, dataMotion.y,'g-', dataMotion.timestamps, dataMotion.z,'r-', dataMotion.timestamps, dataMotion.x,'b-')
 ylabel('Position (mm)', 'fontsize',16);
 xlabel('Time (s)', 'fontsize',16);
 title('KIM vs Source motion', 'fontsize', 16);
-legend( 'SI (KIM)', 'AP (KIM)', 'LR (KIM)', 'SI (Actual)', 'AP (Actual)', 'LR (Actual)','Location','NorthEastOutside' );
+legend('SI (KIM)', 'AP (KIM)', 'LR (KIM)', 'SI (Actual)', 'AP (Actual)', 'LR (Actual)','Location', 'best' );
 set(gca,'fontsize',16)
 hold off
+
+ImageFilename = [prefix '_' middle '_3Dmotion.jpg'];
+% print('-djpeg','-r300',fullfile(KIMmotion.KIMOutputFolder,ImageFilename))
 
 end
