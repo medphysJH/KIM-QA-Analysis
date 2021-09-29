@@ -27,10 +27,10 @@ MCR has been used for the purpose when the computers at different sites do not h
       * One line per marker, all positions in mm  
       * Final line is the isocentre in the same format as the markers  
       * The code requires this file to only contain numbers.    
-   * d) 'Select param file' - Contains the parameters **a b c**; all three values are seconds  
-      * The program shifts the timing of the KIM trace to match the timing of the robot trace between the times a and c with a step size of b until the SI positions match.  
-      * Create a .txt file containing the parameters **a b c**, for example **-30 0.01 30**. In this example, the code will shift the trace from -30 sec to 30 sec in steps of 0.01 sec.  
    * e) Click on 'analyse'.
  
 ## Output
 This will produce an output file with the information mean, standard deviation and percentiles in LR, SI and AP directions for all the data points in the KIM input trace and a figure with KIM trace and robot trace on top of each other. The name of the output file and the figure will be denoted by the KIM folder name stated in step 2a).  
+
+## Notes
+The parameter file is no longer required to match the traces

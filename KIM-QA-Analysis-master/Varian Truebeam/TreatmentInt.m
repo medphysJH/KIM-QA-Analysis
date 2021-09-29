@@ -422,13 +422,13 @@ plotKIMAndHexa(dataKIM,dataHexa,deepestFolder)
 %findTimeGaps(dataKIM, dataHexa)
 
 figure(1)
-close
+% close
 figure(2)
-close
+% close
 figure(3)
-close
+% close
 figure(4)
-close
+% close
 
 
 end
