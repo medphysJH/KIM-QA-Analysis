@@ -61,21 +61,19 @@ latency = 0;
 % First 'n' rows are marker co-ordinates
 % Last row is the isocentre
 
-fid = fopen(KIMdata.KIMcoordFile);
-coordData = fscanf(fid, '%f %f %f');
-fclose(fid);
+coordData = KIMCoordinate(KIMdata.KIMcoordFile);
 
-nMar = (length(coordData)/3-1);
+nMar = size(coordData,1)-1;
 
-marker_x = sum(coordData(1:3:end-3))/nMar;
-marker_y = sum(coordData(2:3:end-3))/nMar;
-marker_z = sum(coordData(3:3:end-3))/nMar;
+marker_x = sum(coordData(1:end-1,1))/nMar;
+marker_y = sum(coordData(1:end-1,2))/nMar;
+marker_z = sum(coordData(1:end-1,3))/nMar;
 
 % Marker co-ordinates need to be transformed to machine space (Dicom to IEC)
 % In IEC space y is inverted and y and z are switched
-Avg_marker_x = 10*(marker_x - coordData(end-2));
-Avg_marker_y = 10*(marker_z - coordData(end));
-Avg_marker_z = -10*(marker_y - coordData(end-1));
+Avg_marker_x = 10*(marker_x - coordData(end,1));
+Avg_marker_y = 10*(marker_z - coordData(end,3));
+Avg_marker_z = -10*(marker_y - coordData(end,2));
 
 
 %% Read and extract motion data
@@ -83,7 +81,11 @@ Avg_marker_z = -10*(marker_y - coordData(end-1));
 
 if static
     % dataMotion.raw = [lateral(x) longitudinal(y) vertical(z)]
-    dataMotion.raw = [KIMdata.value_LR KIMdata.value_SI -KIMdata.value_AP];
+    if strcmp(KIMdata.vendor,'Varian')
+        dataMotion.raw = [KIMdata.value_LR KIMdata.value_SI -KIMdata.value_AP];
+    else
+        dataMotion.raw = [KIMdata.value_LR KIMdata.value_SI KIMdata.value_AP];
+    end
 else
     fid = fopen(KIMdata.KIMRobotFile);
     FirstLine = fgetl(fid);
@@ -318,12 +320,20 @@ dataKIM.analysis.TxResults{3,:} = tsprctile(dataKIM.analysis.TxMotionDiff,[5 95]
 % *For all acquired KIM data (including prearc data)*
 % Repeat above
 % For ease of data processing rearrange positional data into column: x(LR), y(SI), z(AP)
-dataKIM.analysis.AllMotionDiff = dataKIM.coord.center - dataMotion.interp;
+dataKIM.analysis.MotionDiff = dataKIM.coord.center - dataMotion.interp;
+dataKIM.analysis.AbsMotionDiff = sqrt(sum(dataKIM.coord.center.^2,2)) - sqrt(sum(dataMotion.interp.^2,2));
 
 % Calculate mean, stdev and percentile for the positinal data
-dataKIM.analysis.AllResults{1,:} = mean(dataKIM.analysis.AllMotionDiff,1);
-dataKIM.analysis.AllResults{2,:} = std(dataKIM.analysis.AllMotionDiff,0,1);
-dataKIM.analysis.AllResults{3,:} = tsprctile(dataKIM.analysis.AllMotionDiff,[5 95],1);
+dataKIM.analysis.AllResults{1,:} = mean(dataKIM.analysis.MotionDiff,1);
+dataKIM.analysis.AllResults{2,:} = std(dataKIM.analysis.MotionDiff,0,1);
+dataKIM.analysis.AllResults{3,:} = tsprctile(dataKIM.analysis.MotionDiff,[5 95],1);
+
+[dataKIM.analysis.ClippedMotionDiff, dataKIM.analysis.Outliers] = rmoutliers(dataKIM.analysis.AbsMotionDiff, 'median');
+if any(dataKIM.analysis.Outliers)
+    dataKIM.analysis.ClippedResults{1,:} = mean(dataKIM.analysis.MotionDiff(~dataKIM.analysis.Outliers,:),1);
+    dataKIM.analysis.ClippedResults{2,:} = std(dataKIM.analysis.MotionDiff(~dataKIM.analysis.Outliers,:),0,1);
+    dataKIM.analysis.ClippedResults{3,:} = tsprctile(dataKIM.analysis.MotionDiff(~dataKIM.analysis.Outliers,:),[5 95],1);
+end
 
 failname = {' LR,', ' SI,', ' AP,'};
 if any([dataKIM.analysis.AllResults{1,:}]>1)
@@ -344,9 +354,20 @@ OutputText{4,1} = sprintf('Processing time per image (Online): %.3f\n', mean(dif
 OutputText{5,1} = sprintf('Mean\t\t\tStd\t\t\tPercentile(5,95)');
 OutputText{6,1} = sprintf('LR\tSI\tAP\tLR\tSI\tAP\tLR\tSI\tAP');
 OutputText{7,1} = sprintf('%1.2f\t%1.2f\t%1.2f\t%1.2f\t%1.2f\t%1.2f\t(%1.2f, %1.2f)\t(%1.2f, %1.2f)\t(%1.2f, %1.2f)', ...
-                    [dataKIM.analysis.TxResults{1,:}], [dataKIM.analysis.TxResults{2,:}], [dataKIM.analysis.TxResults{3,:}]);
+                    [dataKIM.analysis.AllResults{1,:}], [dataKIM.analysis.AllResults{2,:}], [dataKIM.analysis.AllResults{3,:}]);
 OutputText{8,1} = newline;
 OutputText{9,1} = sprintf('Time shift to match motion traces is = %.4g seconds', TimeShift);
+
+if any(dataKIM.analysis.Outliers)
+    OutputText{10,1} = newline;
+    OutputText{11,1} = [newline '---------------------------------'];
+    OutputText{12,1} = sprintf('%u outliers detected in KIM trace', sum(dataKIM.analysis.Outliers));
+    OutputText{13,1} = 'Results when outliers removed are:';
+    OutputText{14,1} = sprintf('Mean\t\t\tStd\t\t\tPercentile(5,95)');
+    OutputText{15,1} = sprintf('LR\tSI\tAP\tLR\tSI\tAP\tLR\tSI\tAP');
+    OutputText{16,1} = sprintf('%1.2f\t%1.2f\t%1.2f\t%1.2f\t%1.2f\t%1.2f\t(%1.2f, %1.2f)\t(%1.2f, %1.2f)\t(%1.2f, %1.2f)', ...
+        [dataKIM.analysis.ClippedResults{1,:}], [dataKIM.analysis.ClippedResults{2,:}], [dataKIM.analysis.ClippedResults{3,:}]);
+end
 
 writecell(OutputText,file_output, 'Delimiter','space', 'QuoteStrings', false)
 
@@ -385,7 +406,7 @@ if couch.NumShifts >= 1
     print(f,'-djpeg','-r300',fullfile(KIMdata.KIMOutputFolder,ImageFilename))
     
     % Plot KIM with expected motion data (matched)
-    f = figure('Units','pixels','Position',[100 100 1500 900]);
+    f = figure('Units','pixels','Position',[100 100 1000 600]);
     hold on
     plot(dataMotion.timestamps, dataMotion.raw(:,2), 'k-', dataKIM.time.corrected, dataKIM.coord.shifted(:,2), 'g.')
     xlabel('Index', 'fontsize',16)
@@ -404,7 +425,7 @@ else
 end
 
 % Plot KIM synced with expected motion data
-f = figure('Units','pixels','Position',[100 100 1500 900]);
+f = figure('Units','pixels','Position',[100 100 1000 600]);
 hold on
 plot(MotionTime, Motion, 'k.', KIM_time + TimeShift, KIMmagnitude, 'r-')
 plot(MotionTime, sqrt(sum(dataMotion.raw.^2,2)), 'c--', KIM_time + TimeShift, rKIMmotion(start_index:end_index), 'g--')
@@ -417,7 +438,7 @@ hold off
 ImageFilename = [prefix '_' middle '_KIM_Source_synced.jpg'];
 print(f,'-djpeg','-r300',fullfile(KIMdata.KIMOutputFolder,ImageFilename))
 
-f = figure('Units','pixels','Position',[100 100 1500 900]);
+f = figure('Units','pixels','Position',[100 100 1000 600]);
 hold on
 plot(dataKIM.time.corrected, dataKIM.coord.center(:,2),'gx', dataKIM.time.corrected, dataKIM.coord.center(:,3),'rx', dataKIM.time.corrected, dataKIM.coord.center(:,1),'bx', 'linewidth', 3)
 plot(dataMotion.timestamps, dataMotion.shifted(:,2),'g-', dataMotion.timestamps, dataMotion.shifted(:,3),'r-', dataMotion.timestamps, dataMotion.shifted(:,1),'b-')
@@ -429,6 +450,25 @@ set(gca,'fontsize',16)
 hold off
 ImageFilename = [prefix '_' middle '_KIMvsMotion.jpg'];
 print(f,'-djpeg','-r300',fullfile(KIMdata.KIMOutputFolder,ImageFilename))
+
+if any(dataKIM.analysis.Outliers)
+    f = figure('Units','pixels','Position',[100 100 1000 600]);
+    hold on
+    plot(dataKIM.time.corrected(~dataKIM.analysis.Outliers), dataKIM.coord.center(~dataKIM.analysis.Outliers,2),'gx', ...
+        dataKIM.time.corrected(~dataKIM.analysis.Outliers), dataKIM.coord.center(~dataKIM.analysis.Outliers,3),'rx', ...
+        dataKIM.time.corrected(~dataKIM.analysis.Outliers), dataKIM.coord.center(~dataKIM.analysis.Outliers,1),'bx', 'linewidth', 3)
+    plot(dataMotion.timestamps, dataMotion.shifted(:,2),'g-', ...
+        dataMotion.timestamps, dataMotion.shifted(:,3),'r-', ...
+        dataMotion.timestamps, dataMotion.shifted(:,1),'b-')
+    ylabel('Position (mm)', 'fontsize',16);
+    xlabel('Time (s)', 'fontsize',16);
+    title('KIM vs Source motion (outliers removed)', 'fontsize', 16);
+    legend('SI (KIM)', 'AP (KIM)', 'LR (KIM)', 'SI (Actual)', 'AP (Actual)', 'LR (Actual)','Location', 'best' );
+    set(gca,'fontsize',16)
+    hold off
+    ImageFilename = [prefix '_' middle '_KIMvsMotion_clipped.jpg'];
+    print(f,'-djpeg','-r300',fullfile(KIMdata.KIMOutputFolder,ImageFilename))
+end
 
 if exist('noti_fid', 'var')
   delete(noti_fid);
@@ -495,4 +535,15 @@ OutputText{5,1} = sprintf('%1.2f\t%1.2f\t%1.2f\t%1.2f\t%1.2f\t%1.2f\t(%1.2f, %1.
 OutputText{6,1} = newline;
 
 writecell(OutputText,file_output, 'Delimiter','space', 'QuoteStrings', false)
+end
+
+function output = KIMCoordinate(inputfile)
+
+    coordData = readcell(inputfile);
+    if isnumeric(coordData{1,1})
+        output = cell2mat(coordData);
+    else
+        extract = split(coordData(3:end,2:end),'=');
+        output = cellfun(@str2num,extract(:,:,2));
+    end
 end

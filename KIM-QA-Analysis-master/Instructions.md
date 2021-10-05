@@ -1,6 +1,6 @@
 # Instructions
 
-## Requirement: MATLAB, MCR 2018b 64 bit. 
+## Requirement: MATLAB (or MCR) 2021a 64 bit or later 
 MCR has been used for the purpose when the computers at different sites do not have MATLAB installed. In that case, install MCR on a computer that has MATLAB and create a standalone executable by writing **'mcc -e **.mlapp'** in the command prompt. This will create a standalone executable file. This executable file then can be used in any computer that has MCR istalled.  
 
 ## Instructions to run static tests: 
@@ -8,10 +8,10 @@ MCR has been used for the purpose when the computers at different sites do not h
 2. If MATLAB has been installed, Open the MATLAB app (.mlapp file) and run the code. The UI requires the following inputs to perform the analysis:  
    * a) 'Parent Path' - The folder that contains KIM log files. Usually the Image folder contains 'Markerlocation_GA.txt' file/files which is/are needed for this analyis.
    * b) 'Coordinate file' - The patient coordinate file.  
-      * Contains the [x y z] details of the marker positions in the patient (code assumes 3 markers per patient) followed by the [x y z] isocentre position in the patient
-      * One line per marker, all positions in mm  
-      * Final line is the isocentre in the same format as the markers  
-      * The code requires this file to only contain numbers.  
+      * Can either be the KIM centroid file or have the following structure
+         * Contains the [x y z] details of the marker positions in the patient (code assumes 3 markers per patient) followed by the [x y z] isocentre position in the patient
+         * One line per marker, all positions in mm  
+         * Final line is the isocentre in the same format as the markers  
    * c) 'Static shifts' - Applied couch shifts. 
    * d) Click on 'Compute Accuracy'. 
    * e) The code generate a file named 'Metrics.txt' with the information mean, standard deviation and percentiles in LR, SI and AP directions for all the data points and a figure with the KIM trace. 
