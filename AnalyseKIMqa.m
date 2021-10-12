@@ -152,15 +152,30 @@ else
 end
 
 %% Read and extract KIM trajectory data
-opts = delimitedTextImportOptions('Delimiter',',');
-opts.VariableDescriptionsLine = 1; % first line contains varaiable descriptions
-opts.DataLines = 2;  % data starts on the second line
+% opts = delimitedTextImportOptions('Delimiter',',');
+% opts = detectImportOptions(fullfile(KIMdata.KIMTrajFolder, listOfTrajFiles(1,:)));
 
 if noOfTrajFiles > 1
     rawDataKIM = cell(noOfTrajFiles,1);
     for traj = 1:noOfTrajFiles
+%         if strcmpi(listOfTrajFiles(traj,end-5),'0')
+%             opts.VariableNamesLine = 1; % first line contains varaiable descriptions
+%             opts.DataLines = 2;  % for the first KIM data file, the data starts on the second line (after the header row)
+%         else
+%             opts.VariableNamesLine = 0; % first line contains varaiable descriptions
+%             opts.DataLines = 1; % for subsequent KIM data files the data starts on the first line
+%         end
         logfilename = fullfile(KIMdata.KIMTrajFolder, listOfTrajFiles(traj,:));
-        rawDataKIM{traj} = readcell(logfilename, opts);
+        opts = detectImportOptions(logfilename);
+        temp = readcell(logfilename, opts);
+        if traj == 1
+            NumCol = size(temp,2);
+            rawDataKIM{traj} = temp;
+            clear temp
+        else
+            rawDataKIM{traj} = temp(:,1:NumCol);
+            clear temp
+        end
     end
     ShiftIndex_KIM = cellfun('size',rawDataKIM,1);
     ShiftIndex_KIM = cumsum(ShiftIndex_KIM);
@@ -223,7 +238,7 @@ if couch.NumShifts >= 1
 end
 if static
     dataKIM.coord.shifted = dataKIM.coord.shifted(10:end,:);
-    AnalyseStatic(dataKIM, dataMotion, file_output);
+    AnalyseStatic(dataKIM, dataMotion, file_output, couch.NumShifts>=1);
     if exist('noti_fid', 'var')
         delete(noti_fid);
         clear('noti_fid');
@@ -494,7 +509,7 @@ function StartingIndex=StrtIndx(KIMmotion)
     end
 end
 
-function AnalyseStatic(dataKIM, dataMotion, file_output)
+function AnalyseStatic(dataKIM, dataMotion, file_output, couchshifted)
 % dataMotion.raw [LR, SI, AP] couch shifts
 % dataKIM.coord.shifted [x, y, z] KIM data
 
@@ -509,6 +524,20 @@ set(gca,'fontsize',16)
 hold off
 ImageFilename = [file_output(1:end-4) '.jpg'];
 print(f,'-djpeg','-r300',ImageFilename)
+
+if couchshifted
+    f = figure;
+    hold on
+    plot(dataKIM.time.raw, dataKIM.coord.center(:,1), 'bx', dataKIM.time.raw, dataKIM.coord.center(:,2), 'gx', dataKIM.time.raw, dataKIM.coord.center(:,3), 'rx')
+    ylabel('Position (mm)', 'fontsize',16);
+    xlabel('Time (s)', 'fontsize',16);
+    title('KIM 3DoF motion (no couch shifts applied)', 'fontsize', 16);
+    legend('LR (KIM)', 'SI (KIM)', 'AP (KIM)', 'Location', 'best');
+    set(gca,'fontsize',16)
+    hold off
+    ImageFilename = [file_output(1:end-4) '_unshifted.jpg'];
+    print(f,'-djpeg','-r300',ImageFilename)
+end
 
 DisplacementMean = mean(dataKIM.coord.shifted - dataMotion.raw,1);
 DisplacementStd = std(dataKIM.coord.shifted - dataMotion.raw,1);
