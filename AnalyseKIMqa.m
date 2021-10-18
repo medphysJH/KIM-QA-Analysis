@@ -122,7 +122,7 @@ else
         % Hexa_freq = 0.0225; % According to hexamotion documentation, this is meant to be 0.02, however 0.0225 fits the KIM data better
         Hexa_freq = 0.02;
         
-        dataMotion.timestamps = [0:Hexa_freq:(length(dataMotion.x)-1)*Hexa_freq]';
+        dataMotion.timestamps = [0:Hexa_freq:(length(rawMotionData{1})-1)*Hexa_freq]';
     end
 end
 
@@ -183,6 +183,7 @@ if noOfTrajFiles > 1
     rawDataKIM = vertcat(rawDataKIM{:});
 else
     logfilename = fullfile(KIMdata.KIMTrajFolder, listOfTrajFiles);
+    opts = detectImportOptions(logfilename);
     rawDataKIM = readcell(logfilename, opts);
 end
 
