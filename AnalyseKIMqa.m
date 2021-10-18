@@ -351,7 +351,7 @@ if any(dataKIM.analysis.Outliers)
 end
 
 failname = {' LR,', ' SI,', ' AP,'};
-if any([dataKIM.analysis.AllResults{1,:}]>1)
+if any(abs([dataKIM.analysis.AllResults{1,:}])>1)
     OutputText{1,1} = ['QA result: KIM FAILED in ', append, ' test'];
     OutputText{2,1} = ['Tested trajectory ', RobotFile, ': mean difference of',]; 
     OutputText{2,1} = [OutputText{2,1} failname{[dataKIM.analysis.AllResults{1,:}]>1} ' > or = 2 mm' newline];
